@@ -44,6 +44,8 @@ export const mockUsers: User[] = [
     level: 'intermediate',
     goals: ['hypertrophy'],
     bigThree: { bench: 100, squat: 130, deadlift: 150 },
+    height: 175, weight: 78,
+    bio: '筋肥大メインで週4〜5回トレしてます。朝活トレ仲間を探してます。大会も視野に入れているので、同じ目標を持つ人と切磋琢磨したいです。',
     tags: [
       { label: 'Hypertrophy', primary: true },
       { label: 'Competition', primary: true },
@@ -64,6 +66,8 @@ export const mockUsers: User[] = [
     level: 'beginner',
     goals: ['cutting'],
     bigThree: { bench: 70, squat: 90, deadlift: 100 },
+    height: 170, weight: 65,
+    bio: 'トレ歴1年のビギナーです。減量中で食事管理も勉強中。わからないことも多いので、経験者の方に教えてもらえると嬉しいです！',
     tags: [
       { label: 'Cutting', primary: true },
       { label: 'Beginner' },
@@ -84,6 +88,8 @@ export const mockUsers: User[] = [
     level: 'advanced',
     goals: ['powerlifting'],
     bigThree: { bench: 140, squat: 170, deadlift: 200 },
+    height: 172, weight: 90,
+    bio: 'パワーリフティング競技者として活動中。指導経験あり。フォームや強化方法について一緒に研究できる仲間を求めています。',
     tags: [
       { label: 'Powerlifting', primary: true },
       { label: 'Competitor', primary: true },
@@ -104,6 +110,8 @@ export const mockUsers: User[] = [
     level: 'intermediate',
     goals: ['bodybuilding', 'hypertrophy'],
     bigThree: { bench: 110, squat: 140, deadlift: 160 },
+    height: 178, weight: 85,
+    bio: 'ボディビル・筋肥大が専門。ピリオダイゼーションやサプリメントに詳しいです。増量期中で一緒に食べてトレできる人を探してます。',
     tags: [
       { label: 'Hypertrophy', primary: true },
       { label: 'Bodybuilding' },
@@ -124,6 +132,8 @@ export const mockUsers: User[] = [
     level: 'intermediate',
     goals: ['strength'],
     bigThree: { bench: 120, squat: 150, deadlift: 180 },
+    height: 180, weight: 80,
+    bio: 'ストレングス系がメインですがクロスフィットやランニングも好きです。仕事終わりに夜トレ派。気軽に話せるトレ友募集中。',
     tags: [
       { label: 'Strength', primary: true },
       { label: 'CrossFit' },

@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar';
 import { Header } from '@/components/Header';
 import { FilterBar } from '@/components/FilterBar';
 import { SwipeCard, SwipeDirection } from '@/components/SwipeCard';
-import { ActionButtons } from '@/components/ActionButtons';
 import { mockUsers } from '@/data/mockUsers';
 import { colors, spacing } from '@/theme';
 
@@ -16,8 +15,6 @@ export const DiscoverScreen: React.FC = () => {
     // TODO: API call to record like/pass
     setIndex((prev) => (prev + 1) % mockUsers.length);
   }, [index]);
-
-  const handleAction = (dir: SwipeDirection) => () => handleSwipe(dir);
 
   // 現在のカードと次のカード（背景用）
   const currentUser = mockUsers[index];
@@ -42,11 +39,7 @@ export const DiscoverScreen: React.FC = () => {
           />
         </View>
 
-        <ActionButtons
-          onPass={handleAction('left')}
-          onSuperLike={() => console.log('[anchor] Super Like')}
-          onLike={handleAction('right')}
-        />
+
       </View>
     </SafeAreaView>
   );

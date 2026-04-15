@@ -48,6 +48,9 @@ export interface User {
 
   bigThree: BigThree;
 
+  height?: number;   // cm
+  weight?: number;   // kg
+
   tags: Array<{ label: string; primary?: boolean }>;
 
   photos?: string[];        // URLリスト（将来的に）

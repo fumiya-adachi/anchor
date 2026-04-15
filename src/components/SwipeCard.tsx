@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, Image } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Image, ScrollView } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -11,7 +11,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, typography, spacing, fonts } from '@/theme';
+
+import { colors, spacing, fonts } from '@/theme';
 import { User } from '@/types/user';
 import { userPhotos } from '@/data/mockUsers';
 
@@ -36,6 +37,8 @@ export const SwipeCard: React.FC<SwipeCardProps> = ({
   const photos = userPhotos[user.id] ?? [];
   const photoCount = photos.length;
   const [photoIndex, setPhotoIndex] = useState(0);
+  // カードの実際の高さを取得してフル表示に使う
+  const [cardHeight, setCardHeight] = useState(0);
 
   const goNext = () => setPhotoIndex((i) => Math.min(i + 1, photoCount - 1));
   const goPrev = () => setPhotoIndex((i) => Math.max(i - 1, 0));
@@ -44,25 +47,15 @@ export const SwipeCard: React.FC<SwipeCardProps> = ({
   const translateY = useSharedValue(0);
   const rotateZ = useSharedValue(0);
 
-  const triggerSwipe = (dir: SwipeDirection) => {
-    onSwipe(dir);
-  };
+  const triggerSwipe = (dir: SwipeDirection) => onSwipe(dir);
 
-  const tap = Gesture.Tap()
-    .enabled(isTop)
-    .onEnd((e) => {
-      if (e.x < SCREEN_WIDTH / 2) {
-        runOnJS(goPrev)();
-      } else {
-        runOnJS(goNext)();
-      }
-    });
-
+  // 水平移動のみ検知（縦スクロールと競合しない）
   const pan = Gesture.Pan()
     .enabled(isTop)
+    .activeOffsetX([-12, 12])
     .onUpdate((e) => {
       translateX.value = e.translationX;
-      translateY.value = e.translationY * 0.2;
+      translateY.value = e.translationY * 0.15;
       rotateZ.value = e.translationX * 0.04;
     })
     .onEnd(() => {
@@ -78,6 +71,17 @@ export const SwipeCard: React.FC<SwipeCardProps> = ({
         translateX.value = withSpring(0);
         translateY.value = withSpring(0);
         rotateZ.value = withSpring(0);
+      }
+    });
+
+  // 写真タップ（写真エリアのみ）
+  const tap = Gesture.Tap()
+    .enabled(isTop)
+    .onEnd((e) => {
+      if (e.x < SCREEN_WIDTH / 2) {
+        runOnJS(goPrev)();
+      } else {
+        runOnJS(goNext)();
       }
     });
 
@@ -99,124 +103,148 @@ export const SwipeCard: React.FC<SwipeCardProps> = ({
     };
   });
 
-  const likeStampStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      translateX.value,
-      [20, 100],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-    return { opacity };
-  });
+  const likeStampStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(translateX.value, [20, 100], [0, 1], Extrapolation.CLAMP),
+  }));
 
-  const nopeStampStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      translateX.value,
-      [-100, -20],
-      [1, 0],
-      Extrapolation.CLAMP
-    );
-    return { opacity };
-  });
-
-  const composed = Gesture.Exclusive(pan, tap);
+  const nopeStampStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(translateX.value, [-100, -20], [1, 0], Extrapolation.CLAMP),
+  }));
 
   const cardContent = (
-    <Animated.View style={[styles.card, cardStyle]}>
-      {/* 写真 or イニシャルフォールバック */}
-      <View style={styles.photoBg}>
-        {photoCount > 0 ? (
-          <Image
-            source={photos[photoIndex]}
-            style={StyleSheet.absoluteFillObject}
-            resizeMode="cover"
-          />
-        ) : (
-          <>
-            <View style={styles.radialGlow} />
-            <Text style={styles.avatarInitial}>{user.initial}</Text>
-          </>
-        )}
-      </View>
+    <Animated.View
+      style={[styles.card, cardStyle]}
+      onLayout={(e) => setCardHeight(e.nativeEvent.layout.height)}
+    >
+      <ScrollView
+        scrollEnabled={isTop}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        decelerationRate="fast"
+      >
+        {/* ── 写真セクション（カード全高） ── */}
+        <GestureDetector gesture={Gesture.Exclusive(tap)}>
+          <View style={[styles.photoSection, cardHeight > 0 && { height: cardHeight }]}>
 
-      {/* 写真インジケーター */}
-      <View style={styles.indicators}>
-        {Array.from({ length: photoCount || 1 }).map((_, i) => (
-          <View
-            key={i}
-            style={[styles.dot, i === photoIndex && styles.dotActive]}
-          />
-        ))}
-      </View>
+            {/* 写真 or イニシャル */}
+            {photoCount > 0 ? (
+              <Image
+                source={photos[photoIndex]}
+                style={StyleSheet.absoluteFillObject}
+                resizeMode="cover"
+              />
+            ) : (
+              <>
+                <View style={styles.radialGlow} />
+                <Text style={styles.avatarInitial}>{user.initial}</Text>
+              </>
+            )}
 
-      {/* LIKE / NOPE スタンプ */}
-      {isTop && (
-        <>
-          <Animated.View style={[styles.stamp, styles.stampLike, likeStampStyle]}>
-            <Text style={[styles.stampText, { color: colors.like }]}>Like</Text>
-          </Animated.View>
-          <Animated.View style={[styles.stamp, styles.stampNope, nopeStampStyle]}>
-            <Text style={[styles.stampText, { color: colors.nope }]}>Pass</Text>
-          </Animated.View>
-        </>
-      )}
-
-      {/* 下部オーバーレイ */}
-      <LinearGradient
-        colors={['transparent', 'rgba(7,17,31,0.2)', 'rgba(7,17,31,0.75)', 'rgba(7,17,31,0.97)']}
-        locations={[0, 0.25, 0.65, 1]}
-        style={styles.overlay}
-        pointerEvents="none"
-      />
-
-      {/* カード情報 */}
-      <View style={styles.info}>
-        <View style={styles.nameRow}>
-          <Text style={styles.name}>{user.name}</Text>
-          <Text style={styles.age}>{user.age}</Text>
-          {/* TODO:verifiedはマークに変える */}
-          {user.verified && <Text style={styles.verified}>◆ VERIFIED</Text>}
-        </View>
-
-        <View style={styles.accentLine} />
-
-        <Text style={styles.gym}>{user.gym.name}</Text>
-        <Text style={styles.meta}>
-          Training {user.experienceYears} yr{user.experienceYears > 1 ? 's' : ''} · {user.frequencyPerWeek}× weekly · {user.trainingTime}
-        </Text>
-
-        {/* BIG3 */}
-        <View style={styles.weights}>
-          <WeightCell label="Bench" value={user.bigThree.bench} />
-          <View style={styles.divider} />
-          <WeightCell label="Squat" value={user.bigThree.squat} />
-          <View style={styles.divider} />
-          <WeightCell label="Deadlift" value={user.bigThree.deadlift} />
-        </View>
-
-        {/* タグ */}
-        {/* <View style={styles.tags}>
-          {user.tags.map((t, i) => (
-            <View
-              key={i}
-              style={[styles.tag, t.primary && styles.tagPrimary]}
-            >
-              <Text style={[styles.tagText, t.primary && styles.tagTextPrimary]}>
-                {t.label}
-              </Text>
+            {/* インジケーター */}
+            <View style={styles.indicators}>
+              {Array.from({ length: photoCount || 1 }).map((_, i) => (
+                <View key={i} style={[styles.dot, i === photoIndex && styles.dotActive]} />
+              ))}
             </View>
-          ))}
-        </View> */}
-      </View>
+
+            {/* LIKE / NOPE スタンプ */}
+            {isTop && (
+              <>
+                <Animated.View style={[styles.stamp, styles.stampLike, likeStampStyle]}>
+                  <Text style={[styles.stampText, { color: colors.like }]}>Like</Text>
+                </Animated.View>
+                <Animated.View style={[styles.stamp, styles.stampNope, nopeStampStyle]}>
+                  <Text style={[styles.stampText, { color: colors.nope }]}>Pass</Text>
+                </Animated.View>
+              </>
+            )}
+
+            {/* グラデーションオーバーレイ */}
+            <LinearGradient
+              colors={['transparent', 'rgba(7,17,31,0.15)', 'rgba(7,17,31,0.7)', 'rgba(7,17,31,0.97)']}
+              locations={[0, 0.4, 0.75, 1]}
+              style={styles.overlay}
+              pointerEvents="none"
+            />
+
+            {/* 写真上に残す情報：名前・年齢・verified */}
+            <View style={styles.photoInfo} pointerEvents="none">
+              {user.verified && (
+                <Text style={styles.verified}>◆ Photo verified</Text>
+              )}
+              <View style={styles.nameRow}>
+                <Text style={styles.name}>{user.name}</Text>
+                <Text style={styles.age}>{user.age}</Text>
+              </View>
+            </View>
+
+          </View>
+        </GestureDetector>
+
+        {/* ── コンテンツセクション（スクロール先） ── */}
+        <View style={styles.contentSection}>
+
+          {/* 自己紹介 */}
+          {user.bio && (
+            <View style={styles.bioBlock}>
+              <Text style={styles.sectionLabel}>About</Text>
+              <Text style={styles.bio}>{user.bio}</Text>
+            </View>
+          )}
+
+          {/* ジム・トレーニング情報 */}
+          <View style={styles.metaBlock}>
+            <Text style={styles.sectionLabel}>Training Info</Text>
+            <MetaRow icon="⚓" text={user.gym.name} />
+            <MetaRow icon="📅" text={`週${user.frequencyPerWeek}回 · ${user.trainingTime}`} />
+            <MetaRow icon="🏋️" text={`経験 ${user.experienceYears}年 · ${user.level}`} />
+            {(user.height != null || user.weight != null) && (
+              <MetaRow
+                icon="📐"
+                text={[
+                  user.height != null && `${user.height} cm`,
+                  user.weight != null && `${user.weight} kg`,
+                ].filter(Boolean).join('  /  ')}
+              />
+            )}
+          </View>
+
+          {/* BIG3 */}
+          <View style={styles.weightsBlock}>
+            <Text style={styles.sectionLabel}>Big Three</Text>
+            <View style={styles.weights}>
+              <WeightCell label="Bench" value={user.bigThree.bench} />
+              <View style={styles.divider} />
+              <WeightCell label="Squat" value={user.bigThree.squat} />
+              <View style={styles.divider} />
+              <WeightCell label="Deadlift" value={user.bigThree.deadlift} />
+            </View>
+          </View>
+
+          {/* タグ */}
+          <View style={styles.tags}>
+            {user.tags.map((t, i) => (
+              <View key={i} style={[styles.tag, t.primary && styles.tagPrimary]}>
+                <Text style={[styles.tagText, t.primary && styles.tagTextPrimary]}>
+                  {t.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+        </View>
+      </ScrollView>
     </Animated.View>
   );
 
   return isTop ? (
-    <GestureDetector gesture={composed}>{cardContent}</GestureDetector>
+    <GestureDetector gesture={pan}>{cardContent}</GestureDetector>
   ) : (
     cardContent
   );
 };
+
+// ── サブコンポーネント ──
 
 const WeightCell: React.FC<{ label: string; value: number }> = ({ label, value }) => (
   <View style={styles.weightCell}>
@@ -227,6 +255,15 @@ const WeightCell: React.FC<{ label: string; value: number }> = ({ label, value }
     </View>
   </View>
 );
+
+const MetaRow: React.FC<{ icon: string; text: string }> = ({ icon, text }) => (
+  <View style={styles.metaRow}>
+    <Text style={styles.metaIcon}>{icon}</Text>
+    <Text style={styles.metaText}>{text}</Text>
+  </View>
+);
+
+// ── スタイル ──
 
 const styles = StyleSheet.create({
   card: {
@@ -246,11 +283,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 12 },
     elevation: 14,
   },
-  photoBg: {
-    ...StyleSheet.absoluteFillObject,
+
+  // 写真セクション
+  photoSection: {
+    height: 500, // onLayout で上書きされる初期値
     backgroundColor: colors.bgDeep,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   radialGlow: {
     ...StyleSheet.absoluteFillObject,
@@ -259,11 +299,9 @@ const styles = StyleSheet.create({
   },
   avatarInitial: {
     fontFamily: fonts.serifRegular,
-    fontSize: 160,
+    fontSize: 120,
     color: colors.accent,
     opacity: 0.35,
-    letterSpacing: -4,
-    marginTop: -100,
   },
   indicators: {
     position: 'absolute',
@@ -287,11 +325,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: '65%',
+    height: '50%',
   },
   stamp: {
     position: 'absolute',
-    top: 70,
+    top: 50,
     borderWidth: 2,
     borderRadius: 2,
     paddingVertical: 8,
@@ -314,7 +352,7 @@ const styles = StyleSheet.create({
     letterSpacing: 6,
     textTransform: 'uppercase',
   },
-  info: {
+  photoInfo: {
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -340,11 +378,10 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   verified: {
-    fontSize: 11,
-    color: colors.white,
-    letterSpacing: 0.5,
-    alignSelf: 'center',
-    marginLeft: 2,
+    fontSize: 10,
+    color: colors.accent,
+    letterSpacing: 1.5,
+    marginBottom: 4,
   },
   accentLine: {
     width: 24,
@@ -352,21 +389,62 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     marginVertical: 10,
   },
-  gym: {
-    fontSize: 12,
-    color: colors.textBody,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    marginBottom: 4,
+  scrollHint: {
+    fontSize: 10,
+    color: colors.whiteAlpha(0.4),
+    letterSpacing: 1,
   },
-  meta: {
+
+  // コンテンツセクション
+  contentSection: {
+    backgroundColor: colors.bgDeep,
+    padding: spacing.xxl,
+    paddingBottom: spacing.xxl * 2,
+    gap: 24,
+    borderTopWidth: 1,
+    borderTopColor: colors.accentAlpha(0.12),
+  },
+  sectionLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 2.5,
+    textTransform: 'uppercase',
+    color: colors.accent,
+    marginBottom: 10,
+  },
+  bioBlock: {
+    gap: 0,
+  },
+  bio: {
     fontSize: 13,
-    color: colors.whiteAlpha(0.55),
+    color: colors.whiteAlpha(0.75),
+    lineHeight: 21,
     fontWeight: '300',
+  },
+  metaBlock: {
+    gap: 0,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 5,
+  },
+  metaIcon: {
+    fontSize: 13,
+    width: 20,
+    textAlign: 'center',
+  },
+  metaText: {
+    fontSize: 13,
+    color: colors.textBody,
+    letterSpacing: 0.2,
+  },
+  weightsBlock: {
+    gap: 0,
   },
   weights: {
     flexDirection: 'row',
-    marginTop: 18,
     paddingVertical: 14,
     borderTopWidth: 1,
     borderBottomWidth: 1,
@@ -405,7 +483,6 @@ const styles = StyleSheet.create({
   },
   tags: {
     flexDirection: 'row',
-    marginTop: 14,
     gap: 6,
     flexWrap: 'wrap',
   },
