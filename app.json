@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "anchor",
+    "slug": "anchor",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "anchor",
+    "splash": {
+      "backgroundColor": "#07111f",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.anchor.app"
+    },
+    "android": {
+      "package": "com.anchor.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#07111f"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}

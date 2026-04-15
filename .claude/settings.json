@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"import sys,json; apps=json.load\\(sys.stdin\\); [print\\(k,v.get\\('CFBundleName',''\\)\\) for k,v in apps.items\\(\\) if 'expo' in v.get\\('CFBundleName',''\\).lower\\(\\) or 'expo' in k.lower\\(\\)]\")",
+      "Bash(npm run *)",
+      "Bash(EXPO_PACKAGER_HOSTNAME=localhost npx expo start --ios)"
+    ],
+    "additionalDirectories": [
+      "/private/tmp/expo-go-app"
+    ]
+  }
+}
