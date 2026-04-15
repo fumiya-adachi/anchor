@@ -52,6 +52,7 @@ export interface User {
   weight?: number;   // kg
 
   tags: Array<{ label: string; primary?: boolean }>;
+  interests?: string[];  // 興味・趣味タグ
 
   photos?: string[];        // URLリスト（将来的に）
   bio?: string;

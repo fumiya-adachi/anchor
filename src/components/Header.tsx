@@ -30,11 +30,9 @@ export const Header: React.FC = () => {
         <Text style={styles.logoText}>Anchor</Text>
       </View>
       <View style={styles.iconRow}>
+        {/* TODO: Filter機能を追加 */}
         <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
           <MenuIcon />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
-          <SearchIcon />
         </TouchableOpacity>
       </View>
     </View>

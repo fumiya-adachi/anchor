@@ -221,16 +221,33 @@ export const SwipeCard: React.FC<SwipeCardProps> = ({
             </View>
           </View>
 
-          {/* タグ */}
-          <View style={styles.tags}>
-            {user.tags.map((t, i) => (
-              <View key={i} style={[styles.tag, t.primary && styles.tagPrimary]}>
-                <Text style={[styles.tagText, t.primary && styles.tagTextPrimary]}>
-                  {t.label}
-                </Text>
-              </View>
-            ))}
+          {/* トレーニングタグ */}
+          <View style={styles.tagsBlock}>
+            <Text style={styles.sectionLabel}>Training Style</Text>
+            <View style={styles.tags}>
+              {user.tags.map((t, i) => (
+                <View key={i} style={[styles.tag, t.primary && styles.tagPrimary]}>
+                  <Text style={[styles.tagText, t.primary && styles.tagTextPrimary]}>
+                    {t.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
+
+          {/* 興味・趣味 */}
+          {user.interests && user.interests.length > 0 && (
+            <View style={styles.tagsBlock}>
+              <Text style={styles.sectionLabel}>Interests</Text>
+              <View style={styles.tags}>
+                {user.interests.map((interest, i) => (
+                  <View key={i} style={styles.interestTag}>
+                    <Text style={styles.interestTagText}>{interest}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
 
         </View>
       </ScrollView>
@@ -505,5 +522,21 @@ const styles = StyleSheet.create({
   },
   tagTextPrimary: {
     color: colors.white,
+  },
+  tagsBlock: {
+    gap: 0,
+  },
+  interestTag: {
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: colors.whiteAlpha(0.07),
+    borderWidth: 1,
+    borderColor: colors.whiteAlpha(0.12),
+  },
+  interestTagText: {
+    fontSize: 12,
+    color: colors.whiteAlpha(0.85),
+    fontWeight: '400',
   },
 });

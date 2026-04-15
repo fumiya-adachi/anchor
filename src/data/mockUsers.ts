@@ -51,6 +51,7 @@ export const mockUsers: User[] = [
       { label: 'Competition', primary: true },
       { label: 'Sports' },
     ],
+    interests: ['サーフィン', 'コーヒー', '登山', '音楽'],
   },
   {
     id: 'u002',
@@ -73,6 +74,7 @@ export const mockUsers: User[] = [
       { label: 'Beginner' },
       { label: 'Nutrition' },
     ],
+    interests: ['抹茶', 'ヨガ', '料理', '映画'],
   },
   {
     id: 'u003',
@@ -95,6 +97,7 @@ export const mockUsers: User[] = [
       { label: 'Competitor', primary: true },
       { label: 'Coaching' },
     ],
+    interests: ['格闘技', 'サウナ', 'バイク', 'キャンプ'],
   },
   {
     id: 'u004',
@@ -117,6 +120,7 @@ export const mockUsers: User[] = [
       { label: 'Bodybuilding' },
       { label: 'Supplements' },
     ],
+    interests: ['コーヒー', 'ファッション', '旅行', '読書'],
   },
   {
     id: 'u005',
@@ -139,5 +143,6 @@ export const mockUsers: User[] = [
       { label: 'CrossFit' },
       { label: 'Running' },
     ],
+    interests: ['ヨガ', 'サーフィン', '写真', 'ビール'],
   },
 ];
