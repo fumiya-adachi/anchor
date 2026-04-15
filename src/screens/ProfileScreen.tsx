@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Line, Rect, Polyline } from 'react-native-svg';
 import { colors, fonts, spacing } from '@/theme';
+import { EditProfileScreen } from '@/screens/EditProfileScreen';
+import { SettingsScreen } from '@/screens/SettingsScreen';
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 
@@ -112,9 +114,13 @@ export const ProfileScreen: React.FC = () => {
   const name = 'Username';
   const age = 30;
   const completionPct = Math.round(COMPLETION * 100);
+  const [editVisible, setEditVisible] = useState(false);
+  const [settingsVisible, setSettingsVisible] = useState(false);
 
   return (
     <SafeAreaView style={styles.safe}>
+      <EditProfileScreen visible={editVisible} onClose={() => setEditVisible(false)} />
+      <SettingsScreen visible={settingsVisible} onClose={() => setSettingsVisible(false)} />
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
@@ -142,7 +148,7 @@ export const ProfileScreen: React.FC = () => {
         <View style={styles.actionRow}>
           {/* Settings */}
           <View style={styles.actionCol}>
-            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={() => setSettingsVisible(true)}>
               <GearIcon />
             </TouchableOpacity>
             <Text style={styles.actionLabel}>Settings</Text>
@@ -150,7 +156,7 @@ export const ProfileScreen: React.FC = () => {
 
           {/* Edit Profile */}
           <View style={styles.actionCol}>
-            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.8} onPress={() => setEditVisible(true)}>
               <PencilIcon />
             </TouchableOpacity>
             <Text style={styles.actionLabel}>Edit Profile</Text>
