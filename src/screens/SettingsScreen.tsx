@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import { colors, fonts, spacing } from '@/theme';
+import { NotificationSettingsScreen } from '@/screens/NotificationSettingsScreen';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -183,6 +184,8 @@ interface Props {
 }
 
 export const SettingsScreen: React.FC<Props> = ({ visible, onClose }) => {
+  const [notifVisible, setNotifVisible] = useState(false);
+
   const handleLogout = () => {
     Alert.alert('Log out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
@@ -209,6 +212,7 @@ export const SettingsScreen: React.FC<Props> = ({ visible, onClose }) => {
       onRequestClose={onClose}
     >
       <SafeAreaView style={styles.safe}>
+        <NotificationSettingsScreen visible={notifVisible} onClose={() => setNotifVisible(false)} />
         {/* ─ Header ─ */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.headerSideBtn} activeOpacity={0.7}>
@@ -248,7 +252,7 @@ export const SettingsScreen: React.FC<Props> = ({ visible, onClose }) => {
 
           {/* ─ General ─ */}
           <SectionGroup>
-            <Row icon={<BellIcon />} label="Notification settings" />
+            <Row icon={<BellIcon />} label="Notification settings" onPress={() => setNotifVisible(true)} />
             <Row icon={<ShieldIcon />} label="Security and Privacy" />
             <Row icon={<FileIcon />} label="Legal information" />
             <Row icon={<HelpIcon />} label="Get help" last showChevron />

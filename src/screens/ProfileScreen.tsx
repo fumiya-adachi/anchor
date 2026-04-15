@@ -127,10 +127,6 @@ export const ProfileScreen: React.FC = () => {
       >
         {/* ─ Header row ─ */}
         <View style={styles.topRow}>
-          <Text style={styles.screenTitle}>Profile</Text>
-          {/* <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
-            <GearIcon />
-          </TouchableOpacity> */}
         </View>
 
         {/* ─ Avatar + completion badge ─ */}
