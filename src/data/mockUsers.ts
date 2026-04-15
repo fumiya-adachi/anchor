@@ -1,5 +1,34 @@
 import { User } from '@/types/user';
 
+// ローカルアセットの静的マップ（require は動的に使えないため事前定義）
+export const userPhotos: Record<string, ReturnType<typeof require>[]> = {
+  u001: [
+    require('../../assets/images/user_photo_1.jpg'),
+    require('../../assets/images/user_photo_2.jpg'),
+    require('../../assets/images/user_photo_3.jpg'),
+  ],
+  u002: [
+    require('../../assets/images/user_photo_4.jpg'),
+    require('../../assets/images/user_photo_5.jpg'),
+    require('../../assets/images/user_photo_6.jpg'),
+  ],
+  u003: [
+    require('../../assets/images/user_photo_7.jpg'),
+    require('../../assets/images/user_photo_8.jpg'),
+    require('../../assets/images/user_photo_9.jpg'),
+  ],
+  u004: [
+    require('../../assets/images/user_photo_10.jpg'),
+    require('../../assets/images/user_photo_11.jpg'),
+    require('../../assets/images/user_photo_12.jpg'),
+  ],
+  u005: [
+    require('../../assets/images/user_photo_13.jpg'),
+    require('../../assets/images/user_photo_14.jpg'),
+    require('../../assets/images/user_photo_15.jpg'),
+  ],
+};
+
 export const mockUsers: User[] = [
   {
     id: 'u001',

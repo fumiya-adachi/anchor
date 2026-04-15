@@ -22,7 +22,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fonts.serif,
     fontSize: 36,
-    color: colors.accent,
+    color: colors.white,
     letterSpacing: 2,
     marginBottom: 12,
   },

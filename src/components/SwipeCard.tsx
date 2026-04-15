@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Dimensions, Image } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -13,6 +13,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, typography, spacing, fonts } from '@/theme';
 import { User } from '@/types/user';
+import { userPhotos } from '@/data/mockUsers';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
@@ -32,6 +33,13 @@ export const SwipeCard: React.FC<SwipeCardProps> = ({
   isTop = true,
   index = 0,
 }) => {
+  const photos = userPhotos[user.id] ?? [];
+  const photoCount = photos.length;
+  const [photoIndex, setPhotoIndex] = useState(0);
+
+  const goNext = () => setPhotoIndex((i) => Math.min(i + 1, photoCount - 1));
+  const goPrev = () => setPhotoIndex((i) => Math.max(i - 1, 0));
+
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const rotateZ = useSharedValue(0);
@@ -39,6 +47,16 @@ export const SwipeCard: React.FC<SwipeCardProps> = ({
   const triggerSwipe = (dir: SwipeDirection) => {
     onSwipe(dir);
   };
+
+  const tap = Gesture.Tap()
+    .enabled(isTop)
+    .onEnd((e) => {
+      if (e.x < SCREEN_WIDTH / 2) {
+        runOnJS(goPrev)();
+      } else {
+        runOnJS(goNext)();
+      }
+    });
 
   const pan = Gesture.Pan()
     .enabled(isTop)
@@ -101,20 +119,32 @@ export const SwipeCard: React.FC<SwipeCardProps> = ({
     return { opacity };
   });
 
+  const composed = Gesture.Exclusive(pan, tap);
+
   const cardContent = (
     <Animated.View style={[styles.card, cardStyle]}>
-      {/* 背景グラデーション */}
+      {/* 写真 or イニシャルフォールバック */}
       <View style={styles.photoBg}>
-        <View style={styles.radialGlow} />
-        <Text style={styles.avatarInitial}>{user.initial}</Text>
+        {photoCount > 0 ? (
+          <Image
+            source={photos[photoIndex]}
+            style={StyleSheet.absoluteFillObject}
+            resizeMode="cover"
+          />
+        ) : (
+          <>
+            <View style={styles.radialGlow} />
+            <Text style={styles.avatarInitial}>{user.initial}</Text>
+          </>
+        )}
       </View>
 
       {/* 写真インジケーター */}
       <View style={styles.indicators}>
-        {[0, 1, 2, 3].map((i) => (
+        {Array.from({ length: photoCount || 1 }).map((_, i) => (
           <View
             key={i}
-            style={[styles.dot, i === 0 && styles.dotActive]}
+            style={[styles.dot, i === photoIndex && styles.dotActive]}
           />
         ))}
       </View>
@@ -144,6 +174,7 @@ export const SwipeCard: React.FC<SwipeCardProps> = ({
         <View style={styles.nameRow}>
           <Text style={styles.name}>{user.name}</Text>
           <Text style={styles.age}>{user.age}</Text>
+          {/* TODO:verifiedはマークに変える */}
           {user.verified && <Text style={styles.verified}>◆ VERIFIED</Text>}
         </View>
 
@@ -164,7 +195,7 @@ export const SwipeCard: React.FC<SwipeCardProps> = ({
         </View>
 
         {/* タグ */}
-        <View style={styles.tags}>
+        {/* <View style={styles.tags}>
           {user.tags.map((t, i) => (
             <View
               key={i}
@@ -175,13 +206,13 @@ export const SwipeCard: React.FC<SwipeCardProps> = ({
               </Text>
             </View>
           ))}
-        </View>
+        </View> */}
       </View>
     </Animated.View>
   );
 
   return isTop ? (
-    <GestureDetector gesture={pan}>{cardContent}</GestureDetector>
+    <GestureDetector gesture={composed}>{cardContent}</GestureDetector>
   ) : (
     cardContent
   );
@@ -310,7 +341,7 @@ const styles = StyleSheet.create({
   },
   verified: {
     fontSize: 11,
-    color: colors.accent,
+    color: colors.white,
     letterSpacing: 0.5,
     alignSelf: 'center',
     marginLeft: 2,
@@ -352,7 +383,7 @@ const styles = StyleSheet.create({
   },
   weightLabel: {
     fontSize: 9,
-    color: colors.accent,
+    color: colors.white,
     fontWeight: '500',
     letterSpacing: 2,
     marginBottom: 6,
@@ -396,6 +427,6 @@ const styles = StyleSheet.create({
     color: colors.whiteAlpha(0.8),
   },
   tagTextPrimary: {
-    color: colors.accent,
+    color: colors.white,
   },
 });

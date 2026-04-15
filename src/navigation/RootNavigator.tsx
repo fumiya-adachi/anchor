@@ -52,7 +52,7 @@ export const RootNavigator: React.FC = () => {
           paddingBottom: 14,
           paddingTop: 10,
         },
-        tabBarActiveTintColor: colors.accent,
+        tabBarActiveTintColor: colors.white,
         tabBarInactiveTintColor: colors.textFaint,
         tabBarLabelStyle: {
           fontSize: 9,

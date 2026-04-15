@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fonts.serif,
     fontSize: 36,
-    color: colors.accent,
+    color: colors.white,
     letterSpacing: 2,
     marginTop: 20,
   },
@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
   avatarInitial: {
     fontFamily: fonts.serifRegular,
     fontSize: 56,
-    color: colors.accent,
+    color: colors.white,
   },
   name: {
     fontFamily: fonts.serif,
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     letterSpacing: 1.5,
-    color: colors.accent,
+    color: colors.white,
     marginBottom: 8,
   },
   cardHint: {

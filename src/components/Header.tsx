@@ -1,19 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { colors, typography, spacing } from '@/theme';
-
-/**
- * Anchorアイコン（錨） — ブランドマーク
- */
-const AnchorIcon = () => (
-  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.accent} strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round">
-    <Circle cx={12} cy={5} r={2} />
-    <Line x1={12} y1={7} x2={12} y2={22} />
-    <Line x1={8} y1={10} x2={16} y2={10} />
-    <Path d="M4 15a8 8 0 0016 0" />
-  </Svg>
-);
+import { View, Image, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import Svg, { Circle, Line } from 'react-native-svg';
+import { colors, fonts, spacing } from '@/theme';
 
 const MenuIcon = () => (
   <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={colors.textBody} strokeWidth={1.6} strokeLinecap="round">
@@ -34,8 +22,12 @@ export const Header: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.logoRow}>
-        <AnchorIcon />
-        <Text style={styles.logoText}>anchor</Text>
+        {/* <Image
+          source={require('../../assets/images/logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        /> */}
+        <Text style={styles.logoText}>Anchor</Text>
       </View>
       <View style={styles.iconRow}>
         <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
@@ -62,9 +54,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
+  logo: {
+    height: 50,
+    width: 50,
+    opacity: 0.4,
+  },
   logoText: {
-    ...typography.brand,
-    color: colors.accent,
+    fontFamily: fonts.serif,
+    fontSize: 22,
+    letterSpacing: 2,
+    color: colors.white,
   },
   iconRow: {
     flexDirection: 'row',

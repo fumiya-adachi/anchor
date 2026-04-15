@@ -2,22 +2,11 @@
 
 筋トレ仲間を探すマッチングアプリ。React Native (Expo) + TypeScript で実装。
 
----
-
-## 🎨 デザインシステム
-
-- **テーマ**: ダークネイビー + シャンパンゴールドのプレミアムUI
-- **タイポグラフィ**: Cormorant Garamond（Serif）+ Inter（Sans）
-- **インスピレーション**: Tinder風カードスワイプ、ただし高級感のあるエディトリアル寄りの佇まい
-
----
-
 ## 🚀 セットアップ
 
 ### 1. 依存関係のインストール
 
 ```bash
-cd anchor
 npm install
 ```
 
