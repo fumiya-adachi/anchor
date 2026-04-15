@@ -48,6 +48,8 @@ export interface User {
 
   bigThree: BigThree;
 
+  city?: string;     // 居住地
+
   height?: number;   // cm
   weight?: number;   // kg
 

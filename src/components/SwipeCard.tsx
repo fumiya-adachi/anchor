@@ -176,6 +176,19 @@ export const SwipeCard: React.FC<SwipeCardProps> = ({
                 <Text style={styles.name}>{user.name}</Text>
                 <Text style={styles.age}>{user.age}</Text>
               </View>
+              {(user.city || user.gym.distanceKm != null) && (
+                <View style={styles.locationRow}>
+                  {user.city && (
+                    <Text style={styles.locationText}>Lives in {user.city}</Text>
+                  )}
+                  {user.city && user.gym.distanceKm != null && (
+                    <Text style={styles.locationDot}>·</Text>
+                  )}
+                  {user.gym.distanceKm != null && (
+                    <Text style={styles.locationText}>{user.gym.distanceKm} km away</Text>
+                  )}
+                </View>
+              )}
             </View>
 
           </View>
@@ -538,5 +551,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.whiteAlpha(0.85),
     fontWeight: '400',
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  locationText: {
+    fontSize: 12,
+    color: colors.whiteAlpha(0.65),
+    fontWeight: '400',
+  },
+  locationDot: {
+    fontSize: 12,
+    color: colors.whiteAlpha(0.4),
   },
 });
