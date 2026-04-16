@@ -1,6 +1,9 @@
 import React, { useEffect, useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { enableScreens } from 'react-native-screens';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+
+enableScreens();
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
 import {

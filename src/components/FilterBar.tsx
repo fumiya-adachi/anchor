@@ -24,30 +24,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ onChange }) => {
     onChange?.(id);
   };
 
-  // return (
-  //   <ScrollView
-  //     horizontal
-  //     showsHorizontalScrollIndicator={false}
-  //     style={styles.scroll}
-  //     contentContainerStyle={styles.content}
-  //   >
-  //     {FILTERS.map((f) => {
-  //       const isActive = f.id === active;
-  //       return (
-  //         <TouchableOpacity
-  //           key={f.id}
-  //           onPress={() => handlePress(f.id)}
-  //           activeOpacity={0.7}
-  //           style={[styles.chip, isActive && styles.chipActive]}
-  //         >
-  //           <Text style={[styles.text, isActive && styles.textActive]}>
-  //             {f.label}
-  //           </Text>
-  //         </TouchableOpacity>
-  //       );
-  //     })}
-  //   </ScrollView>
-  // );
+  return null;
 };
 
 const styles = StyleSheet.create({
