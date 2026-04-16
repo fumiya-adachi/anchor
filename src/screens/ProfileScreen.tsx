@@ -125,8 +125,10 @@ export const ProfileScreen: React.FC = () => {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─ Header row ─ */}
+        {/* ─ Header ─ */}
         <View style={styles.topRow}>
+          <Text style={styles.headerTitle}>Profile</Text>
+          <View style={styles.headerAccent} />
         </View>
 
         {/* ─ Avatar + completion badge ─ */}
@@ -198,17 +200,23 @@ const styles = StyleSheet.create({
   // ─ Top row
   topRow: {
     width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 12,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    paddingTop: spacing.xl,
     marginBottom: 28,
   },
-  screenTitle: {
+  headerTitle: {
     fontFamily: fonts.serif,
-    fontSize: 28,
+    fontSize: 32,
     color: colors.white,
-    letterSpacing: 2,
+    letterSpacing: 1.5,
+    marginBottom: 8,
+  },
+  headerAccent: {
+    width: 32,
+    height: 1.5,
+    backgroundColor: colors.accent,
+    borderRadius: 999,
   },
   iconBtn: {
     width: 38,
