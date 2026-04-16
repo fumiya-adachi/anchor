@@ -1,17 +1,35 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Image,
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import Svg, { Path, Rect, Circle } from 'react-native-svg';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Svg, { Path, Rect } from 'react-native-svg';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, spacing, radius } from '@/theme';
-import { userPhotos } from '@/data/mockUsers';
+import { userPhotos, mockUsers } from '@/data/mockUsers';
+import { User } from '@/types/user';
+import { MatchModal } from '@/components/MatchModal';
+import { RootStackParamList } from '@/types/navigation';
+
+type NavProp = StackNavigationProp<RootStackParamList, 'Tabs'>;
 
 // ─── 有料会員フラグ ────────────────────────────────────────────
 // TODO: 認証システムと連携して動的に切り替える
@@ -27,13 +45,13 @@ interface LikedUser {
   likedAgo: string;
 }
 
-const LIKED_USERS: LikedUser[] = [
-  { id: 'u001', name: 'Sota',   age: 26, photoKey: 'u001', likedAgo: '2時間前' },
-  { id: 'u002', name: 'Takumi', age: 23, photoKey: 'u002', likedAgo: '5時間前' },
-  { id: 'u003', name: 'Kenta',  age: 31, photoKey: 'u003', likedAgo: '昨日' },
-  { id: 'u004', name: 'Sho',    age: 28, photoKey: 'u004', likedAgo: '昨日' },
-  { id: 'u005', name: 'Ryo',    age: 29, photoKey: 'u005', likedAgo: '2日前' },
-  { id: 'u001b', name: 'Sota',  age: 26, photoKey: 'u001', likedAgo: '3日前' },
+const INITIAL_LIKED_USERS: LikedUser[] = [
+  { id: 'u001',  name: 'Sota',   age: 26, photoKey: 'u001', likedAgo: '2時間前' },
+  { id: 'u002',  name: 'Takumi', age: 23, photoKey: 'u002', likedAgo: '5時間前' },
+  { id: 'u003',  name: 'Kenta',  age: 31, photoKey: 'u003', likedAgo: '昨日' },
+  { id: 'u004',  name: 'Sho',    age: 28, photoKey: 'u004', likedAgo: '昨日' },
+  { id: 'u005',  name: 'Ryo',    age: 29, photoKey: 'u005', likedAgo: '2日前' },
+  { id: 'u001b', name: 'Sota',   age: 26, photoKey: 'u001', likedAgo: '3日前' },
 ];
 
 // ─── Icons ────────────────────────────────────────────────────
@@ -60,25 +78,101 @@ const HeartIcon = () => (
   </Svg>
 );
 
-// ─── Sub-components ───────────────────────────────────────────
+// ─── Swipable card ────────────────────────────────────────────
 
 const CARD_GAP = spacing.md;
 const CARD_WIDTH = (Dimensions.get('window').width - spacing.xxl * 2 - CARD_GAP) / 2;
+const SWIPE_THRESHOLD = CARD_WIDTH * 0.3;
 
-/** プレミアム用: 通常カード */
-const LikeCard: React.FC<{ user: LikedUser }> = ({ user }) => {
+interface SwipableLikeCardProps {
+  user: LikedUser;
+  onRemove: (id: string) => void;
+  onMatch: (user: LikedUser) => void;
+  onOpenDetail: (user: LikedUser) => void;
+}
+
+const SwipableLikeCard: React.FC<SwipableLikeCardProps> = ({ user, onRemove, onMatch, onOpenDetail }) => {
   const photo = userPhotos[user.photoKey]?.[0];
+  const translateX = useSharedValue(0);
+  const rotateZ   = useSharedValue(0);
+
+  const remove       = () => onRemove(user.id);
+  const triggerMatch = () => onMatch(user);
+  const openDetail   = () => onOpenDetail(user);
+
+  const pan = Gesture.Pan()
+    .runOnJS(true)
+    .activeOffsetX([-8, 8])
+    .onUpdate((e) => {
+      translateX.value = e.translationX;
+      rotateZ.value    = e.translationX * 0.06;
+    })
+    .onEnd(() => {
+      if (translateX.value > SWIPE_THRESHOLD) {
+        triggerMatch();
+        translateX.value = withTiming(CARD_WIDTH * 4, { duration: 280 });
+        setTimeout(remove, 280);
+      } else if (translateX.value < -SWIPE_THRESHOLD) {
+        translateX.value = withTiming(-CARD_WIDTH * 4, { duration: 280 });
+        setTimeout(remove, 280);
+      } else {
+        translateX.value = withSpring(0);
+        rotateZ.value    = withSpring(0);
+      }
+    });
+
+  const tap = Gesture.Tap()
+    .runOnJS(true)
+    .onEnd(openDetail);
+
+  const gesture = Gesture.Exclusive(pan, tap);
+
+  const cardStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { rotateZ: `${rotateZ.value}deg` },
+    ],
+  }));
+
+  const likeStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(translateX.value, [16, 70], [0, 1], Extrapolation.CLAMP),
+  }));
+  const passStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(translateX.value, [-70, -16], [1, 0], Extrapolation.CLAMP),
+  }));
+
   return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.85}>
-      <Image source={photo} style={styles.cardImage} />
-      <View style={styles.cardInfo}>
-        <Text style={styles.cardName}>{user.name}, {user.age}</Text>
-        <Text style={styles.cardTime}>{user.likedAgo}</Text>
-      </View>
-      <View style={styles.cardHeartBadge}>
-        <HeartIcon />
-      </View>
-    </TouchableOpacity>
+    <GestureDetector gesture={gesture}>
+      <Animated.View style={[styles.card, cardStyle]}>
+        <Image source={photo} style={styles.cardImage} />
+
+        {/* LIKE スタンプ */}
+        <Animated.View style={[styles.stamp, styles.stampLike, likeStyle]}>
+          <Text style={[styles.stampText, { color: colors.like }]}>LIKE</Text>
+        </Animated.View>
+
+        {/* PASS スタンプ */}
+        <Animated.View style={[styles.stamp, styles.stampPass, passStyle]}>
+          <Text style={[styles.stampText, { color: colors.nope }]}>PASS</Text>
+        </Animated.View>
+
+        <View style={styles.cardInfo}>
+          <Text style={styles.cardName}>{user.name}, {user.age}</Text>
+          <Text style={styles.cardTime}>{user.likedAgo}</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.cardHeartBadge}
+          activeOpacity={0.7}
+          onPress={() => {
+            triggerMatch();
+            translateX.value = withTiming(CARD_WIDTH * 4, { duration: 280 });
+            setTimeout(remove, 280);
+          }}
+        >
+          <HeartIcon />
+        </TouchableOpacity>
+      </Animated.View>
+    </GestureDetector>
   );
 };
 
@@ -94,7 +188,7 @@ const BlurCard: React.FC<{ user: LikedUser }> = ({ user }) => {
 };
 
 /** 非プレミアム用: ロックオーバーレイ */
-const PremiumGate: React.FC = () => (
+const PremiumGate: React.FC<{ count: number }> = ({ count }) => (
   <View style={styles.gateWrap} pointerEvents="box-none">
     <View style={styles.gateCard}>
       <View style={styles.gateIconWrap}>
@@ -102,7 +196,7 @@ const PremiumGate: React.FC = () => (
       </View>
       <Text style={styles.gateTitle}>プレミアム会員限定</Text>
       <Text style={styles.gateDesc}>
-        あなたをLikeした{LIKED_USERS.length}人を{'\n'}今すぐ確認しよう
+        あなたをLikeした{count}人を{'\n'}今すぐ確認しよう
       </Text>
       <TouchableOpacity style={styles.gateBtn} activeOpacity={0.85}>
         <View style={styles.gateBtnInner}>
@@ -114,9 +208,527 @@ const PremiumGate: React.FC = () => (
   </View>
 );
 
+// ─── Profile detail overlay ───────────────────────────────────
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+interface ProfileDetailOverlayProps {
+  user: LikedUser;
+  onClose: () => void;
+  onPass: () => void;
+  onLike: () => void;
+}
+
+const DetailMetaRow: React.FC<{ icon: string; text: string }> = ({ icon, text }) => (
+  <View style={detailStyles.metaRow}>
+    <Text style={detailStyles.metaIcon}>{icon}</Text>
+    <Text style={detailStyles.metaText}>{text}</Text>
+  </View>
+);
+
+const DetailWeightCell: React.FC<{ label: string; value: number }> = ({ label, value }) => (
+  <View style={detailStyles.weightCell}>
+    <Text style={detailStyles.weightLabel}>{label}</Text>
+    <View style={detailStyles.weightValueRow}>
+      <Text style={detailStyles.weightValue}>{value}</Text>
+      <Text style={detailStyles.weightUnit}>kg</Text>
+    </View>
+  </View>
+);
+
+const ProfileDetailOverlay: React.FC<ProfileDetailOverlayProps> = ({
+  user,
+  onClose,
+  onPass,
+  onLike,
+}) => {
+  const insets = useSafeAreaInsets();
+  const photos = userPhotos[user.photoKey] ?? [];
+  const fullUser = mockUsers.find(u => u.id === user.photoKey);
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const [sectionHeight, setSectionHeight] = useState(0);
+
+  const goNext = () => setPhotoIndex(i => Math.min(i + 1, photos.length - 1));
+  const goPrev = () => setPhotoIndex(i => Math.max(i - 1, 0));
+
+  const ACTION_BAR_HEIGHT = insets.bottom + 88;
+
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      <ScrollView
+        style={detailStyles.scroll}
+        contentContainerStyle={{ paddingBottom: ACTION_BAR_HEIGHT }}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        {/* ── Photo section (full screen height) ── */}
+        <View
+          style={[detailStyles.photoSection, sectionHeight > 0 && { height: sectionHeight }]}
+          onLayout={e => setSectionHeight(e.nativeEvent.layout.height)}
+        >
+          {/* Tappable photo area */}
+          <TouchableOpacity
+            activeOpacity={1}
+            style={StyleSheet.absoluteFill}
+            onPress={e => e.nativeEvent.locationX < SCREEN_WIDTH / 2 ? goPrev() : goNext()}
+          >
+            {photos.length > 0 && (
+              <Image
+                source={photos[photoIndex]}
+                style={StyleSheet.absoluteFillObject}
+                resizeMode="cover"
+              />
+            )}
+          </TouchableOpacity>
+
+          {/* Photo indicators */}
+          <View style={[detailStyles.indicators, { top: insets.top + 14 }]}>
+            {photos.map((_, i) => (
+              <View key={i} style={[detailStyles.dot, i === photoIndex && detailStyles.dotActive]} />
+            ))}
+          </View>
+
+          {/* Close button */}
+          <TouchableOpacity
+            style={[detailStyles.closeBtn, { top: insets.top + 8 }]}
+            onPress={onClose}
+            activeOpacity={0.8}
+          >
+            <Text style={detailStyles.closeBtnText}>✕</Text>
+          </TouchableOpacity>
+
+          {/* Gradient overlay */}
+          <LinearGradient
+            colors={['transparent', 'rgba(7,17,31,0.15)', 'rgba(7,17,31,0.7)', 'rgba(7,17,31,0.97)']}
+            locations={[0, 0.4, 0.75, 1]}
+            style={detailStyles.gradient}
+            pointerEvents="none"
+          />
+
+          {/* Name / age / location */}
+          <View style={detailStyles.photoInfo} pointerEvents="none">
+            {fullUser?.verified && (
+              <Text style={detailStyles.verified}>◆ Photo verified</Text>
+            )}
+            <View style={detailStyles.nameRow}>
+              <Text style={detailStyles.name}>{user.name}</Text>
+              <Text style={detailStyles.age}>{user.age}</Text>
+            </View>
+            {fullUser && (fullUser.city || fullUser.gym.distanceKm != null) && (
+              <View style={detailStyles.locationRow}>
+                {fullUser.city && (
+                  <Text style={detailStyles.locationText}>Lives in {fullUser.city}</Text>
+                )}
+                {fullUser.city && fullUser.gym.distanceKm != null && (
+                  <Text style={detailStyles.locationDot}>·</Text>
+                )}
+                {fullUser.gym.distanceKm != null && (
+                  <Text style={detailStyles.locationText}>{fullUser.gym.distanceKm} km away</Text>
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* ── Content section ── */}
+        {fullUser && (
+          <View style={detailStyles.contentSection}>
+            {/* Bio */}
+            {fullUser.bio && (
+              <View>
+                <Text style={detailStyles.sectionLabel}>About</Text>
+                <Text style={detailStyles.bio}>{fullUser.bio}</Text>
+              </View>
+            )}
+
+            {/* Training Info */}
+            <View>
+              <Text style={detailStyles.sectionLabel}>Training Info</Text>
+              <DetailMetaRow icon="⚓" text={fullUser.gym.name} />
+              <DetailMetaRow icon="📅" text={`週${fullUser.frequencyPerWeek}回 · ${fullUser.trainingTime}`} />
+              <DetailMetaRow icon="🏋️" text={`経験 ${fullUser.experienceYears}年 · ${fullUser.level}`} />
+              {(fullUser.height != null || fullUser.weight != null) && (
+                <DetailMetaRow
+                  icon="📐"
+                  text={[
+                    fullUser.height != null && `${fullUser.height} cm`,
+                    fullUser.weight != null && `${fullUser.weight} kg`,
+                  ].filter(Boolean).join('  /  ')}
+                />
+              )}
+            </View>
+
+            {/* Big Three */}
+            {fullUser.bigThree && (
+              <View>
+                <Text style={detailStyles.sectionLabel}>Big Three</Text>
+                <View style={detailStyles.weights}>
+                  <DetailWeightCell label="Bench" value={fullUser.bigThree.bench} />
+                  <View style={detailStyles.weightDivider} />
+                  <DetailWeightCell label="Squat" value={fullUser.bigThree.squat} />
+                  <View style={detailStyles.weightDivider} />
+                  <DetailWeightCell label="Deadlift" value={fullUser.bigThree.deadlift} />
+                </View>
+              </View>
+            )}
+
+            {/* Training Style tags */}
+            {fullUser.tags && fullUser.tags.length > 0 && (
+              <View>
+                <Text style={detailStyles.sectionLabel}>Training Style</Text>
+                <View style={detailStyles.tags}>
+                  {fullUser.tags.map((t, i) => (
+                    <View key={i} style={[detailStyles.tag, t.primary && detailStyles.tagPrimary]}>
+                      <Text style={[detailStyles.tagText, t.primary && detailStyles.tagTextPrimary]}>
+                        {t.label}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Interests */}
+            {fullUser.interests && fullUser.interests.length > 0 && (
+              <View>
+                <Text style={detailStyles.sectionLabel}>Interests</Text>
+                <View style={detailStyles.tags}>
+                  {fullUser.interests.map((interest, i) => (
+                    <View key={i} style={detailStyles.interestTag}>
+                      <Text style={detailStyles.interestTagText}>{interest}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* ── Action buttons ── */}
+      <View style={[detailStyles.actions, { paddingBottom: insets.bottom + 16 }]}>
+        <TouchableOpacity style={detailStyles.passBtn} activeOpacity={0.8} onPress={onPass}>
+          <Text style={detailStyles.passBtnText}>Pass</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={detailStyles.likeBtn} activeOpacity={0.8} onPress={onLike}>
+          <Text style={detailStyles.likeBtnText}>Like</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+const detailStyles = StyleSheet.create({
+  scroll: {
+    flex: 1,
+    backgroundColor: colors.bgDeep,
+  },
+
+  // Photo section
+  photoSection: {
+    height: 560,
+    backgroundColor: colors.bgDeep,
+    overflow: 'hidden',
+  },
+  indicators: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    gap: 5,
+    zIndex: 10,
+  },
+  dot: {
+    flex: 1,
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  dotActive: {
+    backgroundColor: colors.accent,
+  },
+  closeBtn: {
+    position: 'absolute',
+    right: spacing.xxl,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.blackAlpha(0.55),
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+  },
+  closeBtnText: {
+    color: colors.white,
+    fontSize: 13,
+    fontFamily: fonts.sans,
+  },
+  gradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+  },
+  photoInfo: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: spacing.xxl,
+    zIndex: 5,
+  },
+  verified: {
+    fontSize: 10,
+    color: colors.accent,
+    letterSpacing: 1.5,
+    marginBottom: 4,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.md,
+  },
+  name: {
+    fontFamily: fonts.serif,
+    fontSize: 32,
+    color: colors.white,
+    letterSpacing: 0.5,
+  },
+  age: {
+    fontFamily: fonts.serifRegular,
+    fontSize: 24,
+    color: colors.whiteAlpha(0.75),
+    fontStyle: 'italic',
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  locationText: {
+    fontSize: 12,
+    color: colors.whiteAlpha(0.65),
+  },
+  locationDot: {
+    fontSize: 12,
+    color: colors.whiteAlpha(0.4),
+  },
+
+  // Content section
+  contentSection: {
+    backgroundColor: colors.bgDeep,
+    padding: spacing.xxl,
+    paddingBottom: spacing.xxl * 2,
+    gap: 24,
+    borderTopWidth: 1,
+    borderTopColor: colors.accentAlpha(0.12),
+  },
+  sectionLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 2.5,
+    textTransform: 'uppercase',
+    color: colors.accent,
+    marginBottom: 10,
+  },
+  bio: {
+    fontSize: 13,
+    color: colors.whiteAlpha(0.75),
+    lineHeight: 21,
+    fontWeight: '300',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 5,
+  },
+  metaIcon: {
+    fontSize: 13,
+    width: 20,
+    textAlign: 'center',
+  },
+  metaText: {
+    fontSize: 13,
+    color: colors.textBody,
+    letterSpacing: 0.2,
+  },
+  weights: {
+    flexDirection: 'row',
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.accentAlpha(0.18),
+  },
+  weightCell: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  weightDivider: {
+    width: 1,
+    backgroundColor: colors.accentAlpha(0.15),
+    marginVertical: 8,
+  },
+  weightLabel: {
+    fontSize: 9,
+    color: colors.white,
+    fontWeight: '500',
+    letterSpacing: 2,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  weightValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  weightValue: {
+    fontFamily: fonts.serif,
+    fontSize: 22,
+    color: colors.white,
+  },
+  weightUnit: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginLeft: 2,
+  },
+  tags: {
+    flexDirection: 'row',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  tag: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.accentAlpha(0.3),
+    backgroundColor: colors.accentAlpha(0.04),
+  },
+  tagPrimary: {
+    borderColor: colors.accent,
+  },
+  tagText: {
+    fontSize: 10,
+    fontWeight: '500',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.whiteAlpha(0.8),
+  },
+  tagTextPrimary: {
+    color: colors.white,
+  },
+  interestTag: {
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: colors.whiteAlpha(0.07),
+    borderWidth: 1,
+    borderColor: colors.whiteAlpha(0.12),
+  },
+  interestTagText: {
+    fontSize: 12,
+    color: colors.whiteAlpha(0.85),
+    fontWeight: '400',
+  },
+
+  // Action bar
+  actions: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.lg,
+    gap: spacing.md,
+    backgroundColor: colors.bgBase,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  passBtn: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: radius.round,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  passBtnText: {
+    fontFamily: fonts.sansSemiBold,
+    fontSize: 15,
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+  },
+  likeBtn: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: radius.round,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+  },
+  likeBtnText: {
+    fontFamily: fonts.sansSemiBold,
+    fontSize: 15,
+    color: colors.bgBase,
+    letterSpacing: 0.5,
+  },
+});
+
 // ─── Main screen ──────────────────────────────────────────────
 
 export const LikesScreen: React.FC = () => {
+  const navigation = useNavigation<NavProp>();
+
+  const [remaining, setRemaining]     = useState<LikedUser[]>(INITIAL_LIKED_USERS);
+  const [matchedUser, setMatchedUser]   = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<LikedUser | null>(null);
+
+  const handleRemove = useCallback((id: string) => {
+    setRemaining(prev => prev.filter(u => u.id !== id));
+  }, []);
+
+  const handleMatch = useCallback((likedUser: LikedUser) => {
+    const full = mockUsers.find(u => u.id === likedUser.photoKey) ?? null;
+    if (!full) return;
+    setTimeout(() => setMatchedUser(full), 350);
+  }, []);
+
+  const handleSendMessage = useCallback(() => {
+    if (!matchedUser) return;
+    setMatchedUser(null);
+    navigation.navigate('Chat', {
+      conversationId: matchedUser.id,
+      name: matchedUser.name,
+      verified: matchedUser.verified,
+      photoKey: matchedUser.id,
+    });
+  }, [matchedUser, navigation]);
+
+  const handleKeepSwiping = useCallback(() => {
+    setMatchedUser(null);
+  }, []);
+
+  const handleOpenDetail = useCallback((user: LikedUser) => {
+    setSelectedUser(user);
+  }, []);
+
+  const handleDetailClose = useCallback(() => {
+    setSelectedUser(null);
+  }, []);
+
+  const handleDetailPass = useCallback(() => {
+    if (!selectedUser) return;
+    handleRemove(selectedUser.id);
+    setSelectedUser(null);
+  }, [selectedUser, handleRemove]);
+
+  const handleDetailLike = useCallback(() => {
+    if (!selectedUser) return;
+    handleMatch(selectedUser);
+    handleRemove(selectedUser.id);
+    setSelectedUser(null);
+  }, [selectedUser, handleMatch, handleRemove]);
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
@@ -129,23 +741,47 @@ export const LikesScreen: React.FC = () => {
           <View style={styles.headerAccent} />
           <Text style={styles.headerSub}>
             {IS_PREMIUM
-              ? `${LIKED_USERS.length}人があなたをLikeしました`
+              ? `${remaining.length}人があなたをLikeしました`
               : 'あなたをLikeした人が表示されます'}
           </Text>
         </View>
 
         {/* Grid */}
         <View style={styles.grid}>
-          {LIKED_USERS.map((user) =>
+          {remaining.map((user) =>
             IS_PREMIUM
-              ? <LikeCard key={user.id} user={user} />
+              ? <SwipableLikeCard
+                  key={user.id}
+                  user={user}
+                  onRemove={handleRemove}
+                  onMatch={handleMatch}
+                  onOpenDetail={handleOpenDetail}
+                />
               : <BlurCard key={user.id} user={user} />
+          )}
+          {IS_PREMIUM && remaining.length === 0 && (
+            <Text style={styles.emptyText}>全員チェック済みです！</Text>
           )}
         </View>
       </ScrollView>
 
-      {/* Premium gate overlay */}
-      {!IS_PREMIUM && <PremiumGate />}
+      {!IS_PREMIUM && <PremiumGate count={remaining.length} />}
+
+      <MatchModal
+        visible={matchedUser !== null}
+        matchedUser={matchedUser}
+        onSendMessage={handleSendMessage}
+        onKeepSwiping={handleKeepSwiping}
+      />
+
+      {selectedUser && (
+        <ProfileDetailOverlay
+          user={selectedUser}
+          onClose={handleDetailClose}
+          onPass={handleDetailPass}
+          onLike={handleDetailLike}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -195,6 +831,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xxl,
     gap: CARD_GAP,
   },
+  emptyText: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: colors.textFaint,
+    textAlign: 'center',
+    width: '100%',
+    paddingTop: spacing.xxl,
+    letterSpacing: 0.3,
+  },
 
   // Card
   card: {
@@ -212,6 +857,33 @@ const styles = StyleSheet.create({
   blurredImage: {
     opacity: 0.35,
   },
+
+  // Stamp
+  stamp: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderRadius: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  stampLike: {
+    top: 12,
+    left: 10,
+    borderColor: colors.like,
+    transform: [{ rotate: '-12deg' }],
+  },
+  stampPass: {
+    top: 12,
+    right: 10,
+    borderColor: colors.nope,
+    transform: [{ rotate: '12deg' }],
+  },
+  stampText: {
+    fontFamily: fonts.sansBold,
+    fontSize: 11,
+    letterSpacing: 1.5,
+  },
+
   cardInfo: {
     position: 'absolute',
     bottom: spacing.md,
@@ -259,7 +931,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: spacing.xxl,
     paddingHorizontal: spacing.xxl,
-    // フェードイン用の背景グラデーション代わり
     paddingTop: spacing.xxxl * 2,
     backgroundColor: colors.blackAlpha(0.0),
   },
