@@ -22,6 +22,7 @@ import {
 } from '@expo-google-fonts/inter';
 
 import { RootNavigator } from '@/navigation/RootNavigator';
+import { AuthProvider } from '@/contexts/AuthContext';
 import { colors } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -75,9 +76,11 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.root} onLayout={onLayoutRootView}>
       <View style={styles.root}>
-        <NavigationContainer theme={AppTheme}>
-          <RootNavigator />
-        </NavigationContainer>
+        <AuthProvider>
+          <NavigationContainer theme={AppTheme}>
+            <RootNavigator />
+          </NavigationContainer>
+        </AuthProvider>
       </View>
     </GestureHandlerRootView>
   );

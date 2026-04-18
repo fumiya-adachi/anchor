@@ -10,7 +10,9 @@
       "backgroundColor": "#07111f",
       "resizeMode": "contain"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.anchor.app"
@@ -25,7 +27,9 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-secure-store",
+      "@react-native-community/datetimepicker"
     ]
   }
 }
