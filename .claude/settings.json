@@ -3,7 +3,18 @@
     "allow": [
       "Bash(python3 -c \"import sys,json; apps=json.load\\(sys.stdin\\); [print\\(k,v.get\\('CFBundleName',''\\)\\) for k,v in apps.items\\(\\) if 'expo' in v.get\\('CFBundleName',''\\).lower\\(\\) or 'expo' in k.lower\\(\\)]\")",
       "Bash(npm run *)",
-      "Bash(EXPO_PACKAGER_HOSTNAME=localhost npx expo start --ios)"
+      "Bash(EXPO_PACKAGER_HOSTNAME=localhost npx expo start --ios)",
+      "Bash(file /Users/fumiya/dev/anchor/assets/images/user_photo_*.jpg)",
+      "WebFetch(domain:unsplash.com)",
+      "WebFetch(domain:www.pexels.com)",
+      "Bash(curl -sI \"https://images.pexels.com/photos/2294354/pexels-photo-2294354.jpeg?auto=compress&cs=tinysrgb&w=600&h=800&fit=crop\")",
+      "Bash(curl -sI \"https://cdn.pixabay.com/photo/2017/08/07/11/14/man-2604149_640.jpg\")",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl -sL \"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&h=800&fit=crop&q=85\" -o test_u001.jpg)",
+      "Bash(curl -sL \"https://images.unsplash.com/photo-1518611012118-696072aa579a?w=600&h=800&fit=crop&q=85\" -o test_u002.jpg)",
+      "Bash(curl -sL \"https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=600&h=800&fit=crop&q=85\" -o test_u003.jpg)",
+      "Bash(curl -sL \"https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=600&h=800&fit=crop&q=85\" -o test_u004.jpg)",
+      "Bash(curl -sL \"https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&h=800&fit=crop&q=85\" -o test_u005.jpg)"
     ],
     "additionalDirectories": [
       "/private/tmp/expo-go-app"
