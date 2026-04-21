@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,15 @@ import {
   Image,
   TouchableOpacity,
   ImageSourcePropType,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, fonts, spacing, radius } from '@/theme';
 import { userPhotos } from '@/data/mockUsers';
 import { RootStackParamList } from '@/types/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { matchesApi } from '@/services/api';
 
 type NavProp = StackNavigationProp<RootStackParamList, 'Tabs'>;
 
@@ -41,65 +44,9 @@ interface Conversation {
   photoKey: string;
 }
 
-const newMatches: NewMatch[] = [
-  { id: 'm1', name: 'Sota',   photo: userPhotos['u001'][0], verified: true,  photoKey: 'u001' },
-  { id: 'm2', name: 'Takumi', photo: userPhotos['u002'][0], verified: true,  photoKey: 'u002' },
-  { id: 'm3', name: 'Kenta',  photo: userPhotos['u003'][0], verified: false, photoKey: 'u003' },
-  { id: 'm4', name: 'Sho',    photo: userPhotos['u004'][0], verified: true,  photoKey: 'u004' },
-];
-
-const conversations: Conversation[] = [
-  {
-    id: 'c1',
-    name: 'Kenta',
-    photo: userPhotos['u003'][0],
-    verified: true,
-    lastMessage: 'Recently active, match now!',
-    isOnline: true,
-    likesYou: true,
-    photoKey: 'u003',
-  },
-  {
-    id: 'c2',
-    name: 'Takumi',
-    photo: userPhotos['u002'][0],
-    verified: true,
-    lastMessage: 'Where are you going to train after …',
-    isOnline: false,
-    likesYou: false,
-    photoKey: 'u002',
-  },
-  {
-    id: 'c3',
-    name: 'Sota',
-    photo: userPhotos['u001'][0],
-    verified: true,
-    lastMessage: 'You too!',
-    isOnline: false,
-    likesYou: false,
-    photoKey: 'u001',
-  },
-  {
-    id: 'c4',
-    name: 'Sho',
-    photo: userPhotos['u004'][0],
-    verified: false,
-    lastMessage: "Let's hit the gym together sometime!",
-    isOnline: true,
-    likesYou: false,
-    photoKey: 'u004',
-  },
-  {
-    id: 'c5',
-    name: 'Ryo',
-    photo: userPhotos['u005'][0],
-    verified: true,
-    lastMessage: 'Morning sessions are the best 💪',
-    isOnline: false,
-    likesYou: false,
-    photoKey: 'u005',
-  },
-];
+// モックはフォールバック用に残す（API未接続時・写真表示用）
+const MOCK_NEW_MATCHES: NewMatch[] = [];
+const MOCK_CONVERSATIONS: Conversation[] = [];
 
 // ────────────────────────────────────────────────────────────
 // Sub-components
@@ -160,6 +107,26 @@ const ConversationItem: React.FC<{ item: Conversation; onPress: () => void }> = 
 
 export const MessagesScreen: React.FC = () => {
   const navigation = useNavigation<NavProp>();
+  const { user: authUser } = useAuth();
+
+  const [matches, setMatches] = useState<NewMatch[]>(MOCK_NEW_MATCHES);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!authUser?.idToken) return;
+    matchesApi.getAll(authUser.idToken)
+      .then(({ matches: data }) => {
+        setMatches(data.map(m => ({
+          id: String(m.match_id),
+          name: m.name,
+          photo: userPhotos[String(m.partner_user_id)]?.[0] ?? null,
+          verified: false,
+          photoKey: String(m.partner_user_id),
+        })));
+      })
+      .catch(err => console.error('[Messages] fetch error:', err))
+      .finally(() => setLoading(false));
+  }, [authUser?.idToken]);
 
   const openChat = (name: string, verified: boolean, photoKey: string, conversationId: string) => {
     navigation.navigate('Chat', { conversationId, name, verified, photoKey });
@@ -180,27 +147,34 @@ export const MessagesScreen: React.FC = () => {
 
         {/* New Matches */}
         <Text style={styles.sectionLabel}>New matches</Text>
-        <FlatList
-          data={newMatches}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <NewMatchItem
-              match={item}
-              onPress={() => openChat(item.name, item.verified, item.photoKey, item.id)}
-            />
-          )}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.matchList}
-          scrollEnabled
-        />
+        {loading ? (
+          <ActivityIndicator color={colors.accent} style={{ marginVertical: 16 }} />
+        ) : (
+          <FlatList
+            data={matches}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <NewMatchItem
+                match={item}
+                onPress={() => openChat(item.name, item.verified, item.photoKey, item.id)}
+              />
+            )}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.matchList}
+            scrollEnabled
+            ListEmptyComponent={
+              <Text style={styles.emptyText}>まだマッチはありません</Text>
+            }
+          />
+        )}
 
         {/* Separator */}
         <View style={styles.divider} />
 
-        {/* Conversations */}
+        {/* Conversations（チャット履歴は Firebase 連携後に実装） */}
         <Text style={styles.sectionLabel}>Messages</Text>
-        {conversations.map((item) => (
+        {MOCK_CONVERSATIONS.map((item) => (
           <ConversationItem
             key={item.id}
             item={item}
@@ -266,6 +240,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xxl,
     gap: spacing.lg,
     paddingBottom: spacing.sm,
+  },
+  emptyText: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: colors.textMuted,
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.md,
   },
   matchItem: {
     alignItems: 'center',

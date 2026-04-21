@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -28,6 +29,8 @@ import { userPhotos, mockUsers } from '@/data/mockUsers';
 import { User } from '@/types/user';
 import { MatchModal } from '@/components/MatchModal';
 import { RootStackParamList } from '@/types/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { likesApi } from '@/services/api';
 
 type NavProp = StackNavigationProp<RootStackParamList, 'Tabs'>;
 
@@ -43,16 +46,29 @@ interface LikedUser {
   age: number;
   photoKey: string;
   likedAgo: string;
+  apiData?: any;
 }
 
-const INITIAL_LIKED_USERS: LikedUser[] = [
-  { id: 'u001',  name: 'Sota',   age: 26, photoKey: 'u001', likedAgo: '2時間前' },
-  { id: 'u002',  name: 'Takumi', age: 23, photoKey: 'u002', likedAgo: '5時間前' },
-  { id: 'u003',  name: 'Kenta',  age: 31, photoKey: 'u003', likedAgo: '昨日' },
-  { id: 'u004',  name: 'Sho',    age: 28, photoKey: 'u004', likedAgo: '昨日' },
-  { id: 'u005',  name: 'Ryo',    age: 29, photoKey: 'u005', likedAgo: '2日前' },
-  { id: 'u001b', name: 'Sota',   age: 26, photoKey: 'u001', likedAgo: '3日前' },
-];
+const calcAge = (birthdate?: string): number => {
+  if (!birthdate) return 0;
+  const birth = new Date(birthdate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+};
+
+const timeAgo = (dateStr: string): string => {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const h = Math.floor(diff / 3600000);
+  if (h < 1) return 'たった今';
+  if (h < 24) return `${h}時間前`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return '昨日';
+  if (d < 7) return `${d}日前`;
+  return `${Math.floor(d / 7)}週間前`;
+};
 
 // ─── Icons ────────────────────────────────────────────────────
 
@@ -678,17 +694,54 @@ const detailStyles = StyleSheet.create({
 
 export const LikesScreen: React.FC = () => {
   const navigation = useNavigation<NavProp>();
+  const { user: authUser } = useAuth();
 
-  const [remaining, setRemaining]     = useState<LikedUser[]>(INITIAL_LIKED_USERS);
+  const [remaining, setRemaining]     = useState<LikedUser[]>([]);
+  const [loading, setLoading]         = useState(true);
   const [matchedUser, setMatchedUser]   = useState<User | null>(null);
   const [selectedUser, setSelectedUser] = useState<LikedUser | null>(null);
+
+  useEffect(() => {
+    if (!authUser?.idToken) return;
+    likesApi.getReceived(authUser.idToken)
+      .then(({ likes }) => {
+        setRemaining(likes.map(l => ({
+          id: String(l.id),
+          name: l.name,
+          age: calcAge(l.birthdate),
+          photoKey: String(l.from_user_id),
+          likedAgo: timeAgo(l.created_at),
+          apiData: l,
+        })));
+      })
+      .catch(err => console.error('[Likes] fetch error:', err))
+      .finally(() => setLoading(false));
+  }, [authUser?.idToken]);
 
   const handleRemove = useCallback((id: string) => {
     setRemaining(prev => prev.filter(u => u.id !== id));
   }, []);
 
   const handleMatch = useCallback((likedUser: LikedUser) => {
-    const full = mockUsers.find(u => u.id === likedUser.photoKey) ?? null;
+    // まず mockUsers から探し、なければ apiData からミニマル User を構築
+    const full: User | null = mockUsers.find(u => u.id === likedUser.photoKey) ?? (
+      likedUser.apiData ? {
+        id: String(likedUser.apiData.from_user_id),
+        initial: likedUser.name[0]?.toUpperCase() ?? '?',
+        name: likedUser.name,
+        age: likedUser.age,
+        gender: 'other',
+        verified: false,
+        gym: { id: 'gym_0', name: likedUser.apiData.gym_name ?? '–' },
+        experienceYears: 0,
+        frequencyPerWeek: '–',
+        trainingTime: '–',
+        level: likedUser.apiData.level ?? 'beginner',
+        goals: [],
+        bigThree: { bench: 0, squat: 0, deadlift: 0 },
+        tags: [],
+      } : null
+    );
     if (!full) return;
     setTimeout(() => setMatchedUser(full), 350);
   }, []);
@@ -747,22 +800,26 @@ export const LikesScreen: React.FC = () => {
         </View>
 
         {/* Grid */}
-        <View style={styles.grid}>
-          {remaining.map((user) =>
-            IS_PREMIUM
-              ? <SwipableLikeCard
-                  key={user.id}
-                  user={user}
-                  onRemove={handleRemove}
-                  onMatch={handleMatch}
-                  onOpenDetail={handleOpenDetail}
-                />
-              : <BlurCard key={user.id} user={user} />
-          )}
-          {IS_PREMIUM && remaining.length === 0 && (
-            <Text style={styles.emptyText}>全員チェック済みです！</Text>
-          )}
-        </View>
+        {loading ? (
+          <ActivityIndicator color={colors.accent} style={{ marginTop: 40 }} />
+        ) : (
+          <View style={styles.grid}>
+            {remaining.map((user) =>
+              IS_PREMIUM
+                ? <SwipableLikeCard
+                    key={user.id}
+                    user={user}
+                    onRemove={handleRemove}
+                    onMatch={handleMatch}
+                    onOpenDetail={handleOpenDetail}
+                  />
+                : <BlurCard key={user.id} user={user} />
+            )}
+            {IS_PREMIUM && remaining.length === 0 && (
+              <Text style={styles.emptyText}>全員チェック済みです！</Text>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       {!IS_PREMIUM && <PremiumGate count={remaining.length} />}

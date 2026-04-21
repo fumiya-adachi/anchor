@@ -22,6 +22,7 @@ const request = async <T>(path: string, options: RequestOptions = {}): Promise<T
     body: body ? JSON.stringify(body) : undefined,
   });
 
+  if (res.status === 204) return undefined as T;
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'APIエラー');
   return data;
@@ -77,4 +78,38 @@ export const profileApi = {
 
   getProfile: (token: string, userId: number) =>
     request<{ profile: any }>(`/profiles/${userId}`, { token }),
+};
+
+export const likesApi = {
+  send: (token: string, toUserId: number) =>
+    request<{ matched: boolean; matchId?: number }>('/likes', {
+      method: 'POST', token, body: { to_user_id: toUserId },
+    }),
+
+  skip: (token: string, toUserId: number) =>
+    request<void>('/likes/skip', {
+      method: 'POST', token, body: { to_user_id: toUserId },
+    }),
+
+  delete: (token: string, toUserId: number) =>
+    request<void>(`/likes/${toUserId}`, { method: 'DELETE', token }),
+
+  getReceived: (token: string) =>
+    request<{ likes: any[] }>('/likes/received', { token }),
+
+  getSent: (token: string) =>
+    request<{ likes: any[] }>('/likes/sent', { token }),
+};
+
+export const matchesApi = {
+  getAll: (token: string) =>
+    request<{ matches: any[] }>('/likes/matches', { token }),
+
+  delete: (token: string, matchId: number) =>
+    request<void>(`/likes/matches/${matchId}`, { method: 'DELETE', token }),
+};
+
+export const discoverApi = {
+  getUsers: (token: string, limit = 20) =>
+    request<{ users: any[] }>(`/discover?limit=${limit}`, { token }),
 };

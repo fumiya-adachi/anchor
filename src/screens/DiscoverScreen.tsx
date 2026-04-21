@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, SafeAreaView } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { View, StyleSheet, SafeAreaView, ActivityIndicator, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -8,32 +8,112 @@ import { Header } from '@/components/Header';
 import { FilterBar } from '@/components/FilterBar';
 import { SwipeCard, SwipeDirection } from '@/components/SwipeCard';
 import { MatchModal } from '@/components/MatchModal';
-import { mockUsers } from '@/data/mockUsers';
 import { User } from '@/types/user';
-import { colors, spacing } from '@/theme';
+import { colors, fonts, spacing } from '@/theme';
 import { RootStackParamList } from '@/types/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { discoverApi, likesApi } from '@/services/api';
 
 type NavProp = StackNavigationProp<RootStackParamList, 'Tabs'>;
 
-// 右スワイプでマッチが成立する確率（デモ用: 常に成立 = 1.0）
-const MATCH_PROBABILITY = 1.0;
+const calcAge = (birthdate?: string): number => {
+  if (!birthdate) return 0;
+  const birth = new Date(birthdate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+};
+
+// APIレスポンスを SwipeCard / MatchModal が期待する User 型にマッピング
+const apiToUser = (apiUser: any): User => ({
+  id: String(apiUser.user_id),
+  initial: apiUser.name?.[0]?.toUpperCase() ?? '?',
+  name: apiUser.name ?? '–',
+  age: calcAge(apiUser.birthdate),
+  gender: apiUser.gender ?? 'other',
+  verified: false,
+  gym: { id: 'gym_0', name: apiUser.gym_name ?? '–' },
+  experienceYears: apiUser.experience_years ?? 0,
+  frequencyPerWeek: apiUser.frequency_per_week ?? '–',
+  trainingTime: apiUser.training_time ?? '–',
+  level: apiUser.level ?? 'beginner',
+  goals: apiUser.goals ?? [],
+  bigThree: {
+    bench: apiUser.bench_press ?? 0,
+    squat: apiUser.squat ?? 0,
+    deadlift: apiUser.deadlift ?? 0,
+  },
+  tags: apiUser.tags ?? [],
+  interests: (apiUser.interests ?? []).map((i: any) => i.name),
+  bio: apiUser.bio,
+  height: apiUser.height,
+  weight: apiUser.weight,
+});
 
 export const DiscoverScreen: React.FC = () => {
   const navigation = useNavigation<NavProp>();
-  const [index, setIndex] = useState(0);
+  const { user: authUser } = useAuth();
+
+  const [queue, setQueue] = useState<User[]>([]);
+  // user.id (string) → API の数値 user_id のマップ
+  const userIdMap = useRef<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
   const [matchedUser, setMatchedUser] = useState<User | null>(null);
 
-  const handleSwipe = useCallback((direction: SwipeDirection) => {
-    const swiped = mockUsers[index];
-    console.log(`[anchor] Swipe ${direction} on user:`, swiped?.id);
+  const fetchUsers = useCallback(async () => {
+    if (!authUser?.idToken) return;
+    try {
+      const { users } = await discoverApi.getUsers(authUser.idToken, 20);
+      const mapped = users.map(apiToUser);
+      users.forEach((u, i) => {
+        userIdMap.current[mapped[i].id] = u.user_id;
+      });
+      setQueue(mapped);
+    } catch (err) {
+      console.error('[Discover] fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [authUser?.idToken]);
 
-    if (direction === 'right' && Math.random() < MATCH_PROBABILITY) {
-      // モーダル表示はカードのフライアウトアニメーション後
-      setTimeout(() => setMatchedUser(swiped), 350);
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const handleSwipe = useCallback(async (direction: SwipeDirection) => {
+    const swiped = queue[0];
+    if (!swiped || !authUser?.idToken) return;
+
+    // 先にキューから取り除く
+    setQueue(prev => prev.slice(1));
+
+    const apiUserId = userIdMap.current[swiped.id];
+    if (!apiUserId) return;
+
+    if (direction === 'right') {
+      try {
+        const result = await likesApi.send(authUser.idToken, apiUserId);
+        if (result.matched) {
+          setTimeout(() => setMatchedUser(swiped), 350);
+        }
+      } catch (err) {
+        console.error('[Discover] like error:', err);
+      }
+    } else {
+      try {
+        await likesApi.skip(authUser.idToken, apiUserId);
+      } catch (err) {
+        console.error('[Discover] skip error:', err);
+      }
     }
 
-    setIndex((prev) => (prev + 1) % mockUsers.length);
-  }, [index]);
+    // 残り3枚以下になったら追加取得
+    if (queue.length <= 4) {
+      fetchUsers();
+    }
+  }, [queue, authUser?.idToken, fetchUsers]);
 
   const handleSendMessage = useCallback(() => {
     if (!matchedUser) return;
@@ -50,9 +130,7 @@ export const DiscoverScreen: React.FC = () => {
     setMatchedUser(null);
   }, []);
 
-  const currentUser = mockUsers[index];
-  const nextUser    = mockUsers[(index + 1) % mockUsers.length];
-  const thirdUser   = mockUsers[(index + 2) % mockUsers.length];
+  const [current, next, third] = queue;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -62,14 +140,27 @@ export const DiscoverScreen: React.FC = () => {
         <FilterBar />
 
         <View style={styles.cardArea}>
-          <SwipeCard user={thirdUser} onSwipe={() => {}} isTop={false} index={2} />
-          <SwipeCard user={nextUser}  onSwipe={() => {}} isTop={false} index={1} />
-          <SwipeCard
-            key={currentUser.id + '_' + index}
-            user={currentUser}
-            onSwipe={handleSwipe}
-            isTop={true}
-          />
+          {loading ? (
+            <ActivityIndicator color={colors.accent} style={styles.loader} />
+          ) : queue.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>近くにスワイプできる相手がいません。</Text>
+              <Text style={styles.emptySubText}>条件を広げてみませんか？</Text>
+            </View>
+          ) : (
+            <>
+              {third && <SwipeCard user={third} onSwipe={() => {}} isTop={false} index={2} />}
+              {next  && <SwipeCard user={next}  onSwipe={() => {}} isTop={false} index={1} />}
+              {current && (
+                <SwipeCard
+                  key={current.id}
+                  user={current}
+                  onSwipe={handleSwipe}
+                  isTop={true}
+                />
+              )}
+            </>
+          )}
         </View>
       </View>
 
@@ -96,5 +187,25 @@ const styles = StyleSheet.create({
     position: 'relative',
     paddingHorizontal: spacing.lg,
     paddingTop: 4,
+  },
+  loader: {
+    flex: 1,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  emptyText: {
+    fontFamily: fonts.serif,
+    fontSize: 20,
+    color: colors.white,
+    letterSpacing: 0.5,
+  },
+  emptySubText: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    color: colors.textMuted,
   },
 });
