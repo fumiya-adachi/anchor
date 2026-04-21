@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { authApi, ProfilePayload } from '@/services/api';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { authApi, profileApi, ProfilePayload, ProfileUpdatePayload } from '@/services/api';
 import {
   signIn as cognitoSignIn,
   signOut as cognitoSignOut,
@@ -12,6 +12,7 @@ import {
 type AuthState = {
   user: AuthUser | null;
   dbUser: any | null;
+  profile: any | null;
   isLoading: boolean;
 };
 
@@ -20,6 +21,7 @@ type AuthContextValue = AuthState & {
   confirmSignUp: (email: string, code: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => void;
+  updateProfile: (payload: ProfileUpdatePayload) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -28,28 +30,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [state, setState] = useState<AuthState>({
     user: null,
     dbUser: null,
+    profile: null,
     isLoading: true,
   });
+  const pendingProfile = useRef<{ email: string; password: string; profile: ProfilePayload } | null>(null);
 
   // 起動時にセッション復元
   useEffect(() => {
     getCurrentSession().then(async (user) => {
       if (user) {
         try {
-          const { user: dbUser } = await authApi.me(user.idToken);
-          setState({ user, dbUser, isLoading: false });
+          const [{ user: dbUser }, { profile }] = await Promise.all([
+            authApi.me(user.idToken),
+            profileApi.getMe(user.idToken),
+          ]);
+          setState({ user, dbUser, profile, isLoading: false });
         } catch {
-          setState({ user: null, dbUser: null, isLoading: false });
+          setState({ user: null, dbUser: null, profile: null, isLoading: false });
         }
       } else {
-        setState({ user: null, dbUser: null, isLoading: false });
+        setState({ user: null, dbUser: null, profile: null, isLoading: false });
       }
     });
   }, []);
 
   const signUp = async (email: string, password: string, profile: ProfilePayload) => {
     await cognitoSignUp(email, password);
-    // プロフィールデータを一時保存（確認後のsignInで使用）
     pendingProfile.current = { email, password, profile };
   };
 
@@ -69,23 +75,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await authApi.signin(user.idToken);
       dbUser = res.user;
     }
-    setState({ user, dbUser, isLoading: false });
+    const { profile } = await profileApi.getMe(user.idToken);
+    setState({ user, dbUser, profile, isLoading: false });
   };
 
   const signOut = () => {
     cognitoSignOut();
-    setState({ user: null, dbUser: null, isLoading: false });
+    setState({ user: null, dbUser: null, profile: null, isLoading: false });
   };
 
+  const updateProfile = useCallback(async (payload: ProfileUpdatePayload) => {
+    const currentUser = state.user;
+    if (!currentUser) throw new Error('未ログインです');
+    const { profile } = await profileApi.updateMe(currentUser.idToken, payload);
+    setState(prev => ({ ...prev, profile }));
+  }, [state.user]);
+
   return (
-    <AuthContext.Provider value={{ ...state, signUp, confirmSignUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ ...state, signUp, confirmSignUp, signIn, signOut, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );
 };
-
-// signUpとsignInをまたぐプロフィールデータの一時保持
-const pendingProfile = { current: null as { email: string; password: string; profile: ProfilePayload } | null };
 
 export const useAuth = (): AuthContextValue => {
   const ctx = useContext(AuthContext);

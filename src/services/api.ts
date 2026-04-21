@@ -33,6 +33,24 @@ export type ProfilePayload = {
   birthdate: string;
 };
 
+export type ProfileUpdatePayload = {
+  bio?: string;
+  location?: string;
+  height?: number;
+  weight?: number;
+  experience_years?: number;
+  frequency_per_week?: string;
+  training_time?: string;
+  level?: 'beginner' | 'intermediate' | 'advanced';
+  bench_press?: number;
+  squat?: number;
+  deadlift?: number;
+  goals?: string[];
+  tags?: Array<{ label: string; primary?: boolean }>;
+  gym_name?: string;
+  interest_ids?: number[];
+};
+
 export const authApi = {
   signup: (token: string, profile: ProfilePayload) =>
     request('/auth/signup', { method: 'POST', token, body: profile }),
@@ -42,4 +60,21 @@ export const authApi = {
 
   me: (token: string) =>
     request<{ user: any }>('/auth/me', { token }),
+};
+
+export const profileApi = {
+  getMe: (token: string) =>
+    request<{ profile: any }>('/profiles/me', { token }),
+
+  updateMe: (token: string, payload: ProfileUpdatePayload) =>
+    request<{ profile: any }>('/profiles/me', { method: 'PUT', token, body: payload }),
+
+  getInterests: (token: string) =>
+    request<{ interests: Array<{ id: number; name: string; category: string }> }>(
+      '/profiles/interests',
+      { token }
+    ),
+
+  getProfile: (token: string, userId: number) =>
+    request<{ profile: any }>(`/profiles/${userId}`, { token }),
 };

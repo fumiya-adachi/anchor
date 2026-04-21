@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,11 +12,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import Svg, { Path, Line } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, spacing } from '@/theme';
 import { userPhotos, mockUsers } from '@/data/mockUsers';
+import { useAuth } from '@/contexts/AuthContext';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -292,12 +294,39 @@ const MetaRow: React.FC<{ icon: string; text: string }> = ({ icon, text }) => (
   </View>
 );
 
-const PreviewTab: React.FC<{ bio: string }> = ({ bio }) => {
-  const user = mockUsers[0]; // u001 をプレビュー用に使用（将来は自分のデータに）
-  const photos = userPhotos[user.id] ?? [];
+type PreviewData = {
+  bio: string;
+  name: string;
+  age: number;
+  gymName: string;
+  frequencyPerWeek: string;
+  trainingTime: string;
+  experienceYears: number;
+  level: string;
+  height?: number;
+  weight?: number;
+  bench?: number;
+  squat?: number;
+  deadlift?: number;
+  tags: Array<{ label: string; primary?: boolean }>;
+  interests: string[];
+};
+
+const calcAge = (birthdate?: string): number => {
+  if (!birthdate) return 0;
+  const birth = new Date(birthdate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+};
+
+const PreviewTab: React.FC<{ data: PreviewData }> = ({ data }) => {
+  const mockUser = mockUsers[0];
+  const photos = userPhotos[mockUser.id] ?? [];
   const [photoIndex, setPhotoIndex] = useState(0);
 
-  // photo section はモーダルの高さに合わせて調整
   const photoHeight = SCREEN_HEIGHT * 0.5;
 
   return (
@@ -348,14 +377,11 @@ const PreviewTab: React.FC<{ bio: string }> = ({ bio }) => {
           pointerEvents="none"
         />
 
-        {/* 名前・年齢・verified */}
+        {/* 名前・年齢 */}
         <View style={previewStyles.photoInfo} pointerEvents="none">
-          {user.verified && (
-            <Text style={previewStyles.verified}>◆ Photo verified</Text>
-          )}
           <View style={previewStyles.nameRow}>
-            <Text style={previewStyles.name}>{user.name}</Text>
-            <Text style={previewStyles.age}>{user.age}</Text>
+            <Text style={previewStyles.name}>{data.name}</Text>
+            {data.age > 0 && <Text style={previewStyles.age}>{data.age}</Text>}
           </View>
         </View>
       </View>
@@ -367,59 +393,63 @@ const PreviewTab: React.FC<{ bio: string }> = ({ bio }) => {
         <View style={previewStyles.block}>
           <Text style={previewStyles.sectionLabel}>About</Text>
           <Text style={previewStyles.bio}>
-            {bio || user.bio || 'Your bio will appear here...'}
+            {data.bio || 'Your bio will appear here...'}
           </Text>
         </View>
 
         {/* Training Info */}
         <View style={previewStyles.block}>
           <Text style={previewStyles.sectionLabel}>Training Info</Text>
-          <MetaRow icon="⚓" text={user.gym.name} />
-          <MetaRow icon="📅" text={`週${user.frequencyPerWeek}回 · ${user.trainingTime}`} />
-          <MetaRow icon="🏋️" text={`経験 ${user.experienceYears}年 · ${user.level}`} />
-          {(user.height != null || user.weight != null) && (
+          {!!data.gymName && <MetaRow icon="⚓" text={data.gymName} />}
+          {!!data.frequencyPerWeek && <MetaRow icon="📅" text={`週${data.frequencyPerWeek}回 · ${data.trainingTime}`} />}
+          {!!data.experienceYears && <MetaRow icon="🏋️" text={`経験 ${data.experienceYears}年 · ${data.level}`} />}
+          {(data.height != null || data.weight != null) && (
             <MetaRow
               icon="📐"
               text={[
-                user.height != null && `${user.height} cm`,
-                user.weight != null && `${user.weight} kg`,
+                data.height != null && `${data.height} cm`,
+                data.weight != null && `${data.weight} kg`,
               ].filter(Boolean).join('  /  ')}
             />
           )}
         </View>
 
         {/* Big Three */}
-        <View style={previewStyles.block}>
-          <Text style={previewStyles.sectionLabel}>Big Three</Text>
-          <View style={previewStyles.weights}>
-            <WeightCell label="Bench" value={user.bigThree.bench} />
-            <View style={previewStyles.weightDivider} />
-            <WeightCell label="Squat" value={user.bigThree.squat} />
-            <View style={previewStyles.weightDivider} />
-            <WeightCell label="Deadlift" value={user.bigThree.deadlift} />
+        {(data.bench || data.squat || data.deadlift) ? (
+          <View style={previewStyles.block}>
+            <Text style={previewStyles.sectionLabel}>Big Three</Text>
+            <View style={previewStyles.weights}>
+              <WeightCell label="Bench" value={data.bench ?? 0} />
+              <View style={previewStyles.weightDivider} />
+              <WeightCell label="Squat" value={data.squat ?? 0} />
+              <View style={previewStyles.weightDivider} />
+              <WeightCell label="Deadlift" value={data.deadlift ?? 0} />
+            </View>
           </View>
-        </View>
+        ) : null}
 
         {/* Training Style */}
-        <View style={previewStyles.block}>
-          <Text style={previewStyles.sectionLabel}>Training Style</Text>
-          <View style={previewStyles.tags}>
-            {user.tags.map((t, i) => (
-              <View key={i} style={[previewStyles.tag, t.primary && previewStyles.tagPrimary]}>
-                <Text style={[previewStyles.tagText, t.primary && previewStyles.tagTextPrimary]}>
-                  {t.label}
-                </Text>
-              </View>
-            ))}
+        {data.tags.length > 0 && (
+          <View style={previewStyles.block}>
+            <Text style={previewStyles.sectionLabel}>Training Style</Text>
+            <View style={previewStyles.tags}>
+              {data.tags.map((t, i) => (
+                <View key={i} style={[previewStyles.tag, t.primary && previewStyles.tagPrimary]}>
+                  <Text style={[previewStyles.tagText, t.primary && previewStyles.tagTextPrimary]}>
+                    {t.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Interests */}
-        {user.interests && user.interests.length > 0 && (
+        {data.interests.length > 0 && (
           <View style={previewStyles.block}>
             <Text style={previewStyles.sectionLabel}>Interests</Text>
             <View style={previewStyles.tags}>
-              {user.interests.map((interest, i) => (
+              {data.interests.map((interest, i) => (
                 <View key={i} style={previewStyles.interestTag}>
                   <Text style={previewStyles.interestTagText}>{interest}</Text>
                 </View>
@@ -623,7 +653,10 @@ interface Props {
 }
 
 export const EditProfileScreen: React.FC<Props> = ({ visible, onClose }) => {
+  const { profile, updateProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
+  const [saving, setSaving] = useState(false);
+
   const [bio, setBio] = useState('');
   const [gym, setGym] = useState('');
   const [height, setHeight] = useState('');
@@ -631,6 +664,55 @@ export const EditProfileScreen: React.FC<Props> = ({ visible, onClose }) => {
   const [bench, setBench] = useState('');
   const [squat, setSquat] = useState('');
   const [deadlift, setDeadlift] = useState('');
+
+  // モーダルが開くたびにプロフィールデータで初期化
+  useEffect(() => {
+    if (visible && profile) {
+      setBio(profile.bio ?? '');
+      setGym(profile.gym_name ?? '');
+      setHeight(profile.height != null ? String(profile.height) : '');
+      setWeight(profile.weight != null ? String(profile.weight) : '');
+      setBench(profile.bench_press != null ? String(profile.bench_press) : '');
+      setSquat(profile.squat != null ? String(profile.squat) : '');
+      setDeadlift(profile.deadlift != null ? String(profile.deadlift) : '');
+    }
+  }, [visible, profile]);
+
+  const handleDone = async () => {
+    setSaving(true);
+    try {
+      await updateProfile({
+        bio: bio || undefined,
+        gym_name: gym || undefined,
+        height: height ? Number(height) : undefined,
+        weight: weight ? Number(weight) : undefined,
+        bench_press: bench ? Number(bench) : undefined,
+        squat: squat ? Number(squat) : undefined,
+        deadlift: deadlift ? Number(deadlift) : undefined,
+      });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const previewData: PreviewData = {
+    bio,
+    name: profile?.name ?? '',
+    age: calcAge(profile?.birthdate),
+    gymName: gym,
+    frequencyPerWeek: profile?.frequency_per_week ?? '',
+    trainingTime: profile?.training_time ?? '',
+    experienceYears: profile?.experience_years ?? 0,
+    level: profile?.level ?? '',
+    height: height ? Number(height) : profile?.height,
+    weight: weight ? Number(weight) : profile?.weight,
+    bench: bench ? Number(bench) : profile?.bench_press,
+    squat: squat ? Number(squat) : profile?.squat,
+    deadlift: deadlift ? Number(deadlift) : profile?.deadlift,
+    tags: profile?.tags ?? [],
+    interests: (profile?.interests ?? []).map((i: { name: string }) => i.name),
+  };
 
   return (
     <Modal
@@ -644,8 +726,11 @@ export const EditProfileScreen: React.FC<Props> = ({ visible, onClose }) => {
         <View style={styles.header}>
           <View style={styles.headerLeft} />
           <Text style={styles.headerTitle}>Edit Info</Text>
-          <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.doneBtn}>
-            <Text style={styles.doneText}>Done</Text>
+          <TouchableOpacity onPress={handleDone} activeOpacity={0.7} style={styles.doneBtn} disabled={saving}>
+            {saving
+              ? <ActivityIndicator size="small" color={colors.accent} />
+              : <Text style={styles.doneText}>Done</Text>
+            }
           </TouchableOpacity>
         </View>
 
@@ -688,7 +773,7 @@ export const EditProfileScreen: React.FC<Props> = ({ visible, onClose }) => {
               <PhotoGrid />
 
               {/* About */}
-              <SectionHeader label={`About Fumiya`} dot />
+              <SectionHeader label={`About ${profile?.name ?? ''}`} dot />
               <View style={styles.bioContainer}>
                 <TextInput
                   style={styles.bioInput}
@@ -735,7 +820,7 @@ export const EditProfileScreen: React.FC<Props> = ({ visible, onClose }) => {
             </ScrollView>
           </KeyboardAvoidingView>
         ) : (
-          <PreviewTab bio={bio} />
+          <PreviewTab data={previewData} />
         )}
       </SafeAreaView>
     </Modal>

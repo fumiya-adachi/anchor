@@ -11,6 +11,16 @@ import Svg, { Circle, Path, Line, Rect, Polyline } from 'react-native-svg';
 import { colors, fonts, spacing } from '@/theme';
 import { EditProfileScreen } from '@/screens/EditProfileScreen';
 import { SettingsScreen } from '@/screens/SettingsScreen';
+import { useAuth } from '@/contexts/AuthContext';
+
+const calcAge = (birthdate: string): number => {
+  const birth = new Date(birthdate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+};
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 
@@ -36,10 +46,9 @@ const AVATAR_SIZE = 120;
 const RING_THICKNESS = 3;
 const RADIUS = (AVATAR_SIZE - RING_THICKNESS) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-const COMPLETION = 0.6; // 60%
 
-const AvatarRing: React.FC<{ initial: string }> = ({ initial }) => {
-  const dashOffset = CIRCUMFERENCE * (1 - COMPLETION);
+const AvatarRing: React.FC<{ initial: string; completion: number }> = ({ initial, completion }) => {
+  const dashOffset = CIRCUMFERENCE * (1 - completion / 100);
 
   return (
     <View style={avatarStyles.wrapper}>
@@ -110,10 +119,10 @@ const avatarStyles = StyleSheet.create({
 // ── Main Screen ────────────────────────────────────────────────────────────
 
 export const ProfileScreen: React.FC = () => {
-  // TODO: replace with real user data
-  const name = 'Username';
-  const age = 30;
-  const completionPct = Math.round(COMPLETION * 100);
+  const { profile } = useAuth();
+  const name: string = profile?.name ?? '–';
+  const age: number = profile?.birthdate ? calcAge(profile.birthdate) : 0;
+  const completionPct: number = profile?.completion_percentage ?? 0;
   const [editVisible, setEditVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
 
@@ -133,14 +142,14 @@ export const ProfileScreen: React.FC = () => {
 
         {/* ─ Avatar + completion badge ─ */}
         <View style={styles.avatarSection}>
-          <AvatarRing initial={name[0]} />
+          <AvatarRing initial={name[0] ?? '?'} completion={completionPct} />
           <View style={styles.completionBadge}>
             <Text style={styles.completionText}>{completionPct}% complete</Text>
           </View>
         </View>
 
         {/* ─ Name & age ─ */}
-        <Text style={styles.name}>{name}, {age}</Text>
+        <Text style={styles.name}>{name}{age > 0 ? `, ${age}` : ''}</Text>
 
         {/* ─ Action buttons ─ */}
         <View style={styles.actionRow}>
