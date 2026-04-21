@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,17 +23,19 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('エラー', 'メールアドレスとパスワードを入力してください');
+      setError('メールアドレスとパスワードを入力してください');
       return;
     }
+    setError('');
     setLoading(true);
     try {
       await signIn(email.trim(), password);
     } catch (err: any) {
-      Alert.alert('ログインエラー', err.message || 'ログインに失敗しました');
+      setError(err.message || 'ログインに失敗しました');
     } finally {
       setLoading(false);
     }
@@ -51,23 +52,24 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
         <View style={styles.form}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, !!error && styles.inputError]}
             placeholder="メールアドレス"
             placeholderTextColor={colors.textMuted}
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(v) => { setEmail(v); setError(''); }}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
           />
           <TextInput
-            style={styles.input}
+            style={[styles.input, !!error && styles.inputError]}
             placeholder="パスワード"
             placeholderTextColor={colors.textMuted}
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(v) => { setPassword(v); setError(''); }}
             secureTextEntry
           />
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
@@ -129,6 +131,15 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontFamily: 'Inter_400Regular',
     fontSize: 15,
+  },
+  inputError: {
+    borderColor: colors.nope,
+  },
+  errorText: {
+    color: colors.nope,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    marginTop: -8,
   },
   button: {
     backgroundColor: colors.accent,
