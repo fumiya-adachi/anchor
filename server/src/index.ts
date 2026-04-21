@@ -3,6 +3,7 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes';
+import profileRoutes from './routes/profileRoutes';
 
 dotenv.config();
 
@@ -16,6 +17,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/profiles', profileRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req: Request, res: Response) => {
