@@ -4,6 +4,8 @@ import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes';
 import profileRoutes from './routes/profileRoutes';
+import likesRoutes from './routes/likesRoutes';
+import discoverRoutes from './routes/discoverRoutes';
 
 dotenv.config();
 
@@ -18,6 +20,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/profiles', profileRoutes);
+app.use('/api/likes', likesRoutes);
+app.use('/api/discover', discoverRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req: Request, res: Response) => {
