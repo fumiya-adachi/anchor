@@ -113,3 +113,8 @@ export const discoverApi = {
   getUsers: (token: string, limit = 20) =>
     request<{ users: any[] }>(`/discover?limit=${limit}`, { token }),
 };
+
+export const devApi = {
+  resetSwipes: (token: string) =>
+    request<void>('/dev/reset-swipes', { method: 'DELETE', token }),
+};

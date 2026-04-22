@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet, SafeAreaView, ActivityIndicator, Text } from 'react-native';
+import { View, StyleSheet, SafeAreaView, ActivityIndicator, Text, TouchableOpacity, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -12,7 +12,7 @@ import { User } from '@/types/user';
 import { colors, fonts, spacing } from '@/theme';
 import { RootStackParamList } from '@/types/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { discoverApi, likesApi } from '@/services/api';
+import { discoverApi, likesApi, devApi } from '@/services/api';
 
 type NavProp = StackNavigationProp<RootStackParamList, 'Tabs'>;
 
@@ -130,6 +130,22 @@ export const DiscoverScreen: React.FC = () => {
     setMatchedUser(null);
   }, []);
 
+  const handleDevReset = useCallback(async () => {
+    if (!authUser?.idToken) return;
+    Alert.alert('Reset swipes', 'スワイプ履歴をリセットしますか？', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Reset', style: 'destructive',
+        onPress: async () => {
+          await devApi.resetSwipes(authUser.idToken!);
+          setQueue([]);
+          setLoading(true);
+          fetchUsers();
+        },
+      },
+    ]);
+  }, [authUser?.idToken, fetchUsers]);
+
   const [current, next, third] = queue;
 
   return (
@@ -138,6 +154,11 @@ export const DiscoverScreen: React.FC = () => {
       <View style={styles.container}>
         <Header />
         <FilterBar />
+        {__DEV__ && (
+          <TouchableOpacity style={styles.devResetBtn} onPress={handleDevReset}>
+            <Text style={styles.devResetText}>↺ Reset</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.cardArea}>
           {loading ? (
@@ -207,5 +228,20 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans,
     fontSize: 13,
     color: colors.textMuted,
+  },
+  devResetBtn: {
+    alignSelf: 'flex-end',
+    marginRight: spacing.lg,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  devResetText: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.accent,
   },
 });

@@ -8,6 +8,10 @@ yarn.lock
 .env.local
 .env.*.local
 
+# Firebase
+firebase-key.json
+*.json.key
+
 # Build output
 dist/
 build/
