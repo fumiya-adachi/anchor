@@ -5,6 +5,7 @@ import {
   CognitoUserAttribute,
   CognitoUserSession,
 } from 'amazon-cognito-identity-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const USER_POOL_ID = process.env.EXPO_PUBLIC_COGNITO_USER_POOL_ID || '';
 const CLIENT_ID = process.env.EXPO_PUBLIC_COGNITO_CLIENT_ID || '';
@@ -12,6 +13,7 @@ const CLIENT_ID = process.env.EXPO_PUBLIC_COGNITO_CLIENT_ID || '';
 const userPool = new CognitoUserPool({
   UserPoolId: USER_POOL_ID,
   ClientId: CLIENT_ID,
+  Storage: AsyncStorage,
 });
 
 export type AuthUser = {
