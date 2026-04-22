@@ -52,6 +52,37 @@ export const userPhotos: Record<string, ReturnType<typeof require>[]> = {
     require('../../assets/images/user_photo_29.jpg'),
     require('../../assets/images/user_photo_30.jpg'),
   ],
+  '9': [
+    require('../../assets/images/user_photo_31.jpg'),
+    require('../../assets/images/user_photo_32.jpg'),
+    require('../../assets/images/user_photo_33.jpg'),
+  ],
+  // Dummy users (DB ids 4–8) — Keita, Ryota, Shun, Daiki, Haruki
+  '4': [
+    require('../../assets/images/user_photo_34.jpg'),
+    require('../../assets/images/user_photo_35.jpg'),
+    require('../../assets/images/user_photo_36.jpg'),
+  ],
+  '5': [
+    require('../../assets/images/user_photo_37.jpg'),
+    require('../../assets/images/user_photo_38.jpg'),
+    require('../../assets/images/user_photo_39.jpg'),
+  ],
+  '6': [
+    require('../../assets/images/user_photo_40.jpg'),
+    require('../../assets/images/user_photo_41.jpg'),
+    require('../../assets/images/user_photo_42.jpg'),
+  ],
+  '7': [
+    require('../../assets/images/user_photo_43.jpg'),
+    require('../../assets/images/user_photo_44.jpg'),
+    require('../../assets/images/user_photo_45.jpg'),
+  ],
+  '8': [
+    require('../../assets/images/user_photo_46.jpg'),
+    require('../../assets/images/user_photo_47.jpg'),
+    require('../../assets/images/user_photo_48.jpg'),
+  ],
 };
 
 export const mockUsers: User[] = [
