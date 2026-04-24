@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { Pool } from 'pg';
 import { authenticateToken } from '../middleware/auth';
 import { getUserIdByCognitoId } from '../services/userService';
+import { asyncHandler } from '../middleware/asyncHandler';
 
 const pool = new Pool({
   host: process.env.DATABASE_HOST || 'localhost',
@@ -14,17 +15,13 @@ const pool = new Pool({
 const router = Router();
 
 // DEV ONLY: reset swipe history for the authenticated user
-router.delete('/reset-swipes', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    const { cognitoId } = (req as any).user;
-    const userId = await getUserIdByCognitoId(cognitoId);
-    await pool.query('DELETE FROM likes WHERE from_user_id = $1 OR to_user_id = $1', [userId]);
-    await pool.query('DELETE FROM skips WHERE from_user_id = $1', [userId]);
-    await pool.query('DELETE FROM matches WHERE user_a_id = $1 OR user_b_id = $1', [userId]);
-    res.status(204).send();
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.delete('/reset-swipes', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  const { cognitoId } = (req as any).user;
+  const userId = await getUserIdByCognitoId(cognitoId);
+  await pool.query('DELETE FROM likes WHERE from_user_id = $1 OR to_user_id = $1', [userId]);
+  await pool.query('DELETE FROM skips WHERE from_user_id = $1', [userId]);
+  await pool.query('DELETE FROM matches WHERE user_a_id = $1 OR user_b_id = $1', [userId]);
+  res.status(204).send();
+}));
 
 export default router;

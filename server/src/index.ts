@@ -1,4 +1,4 @@
-import express, { Express, Request, Response } from 'express';
+import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
@@ -56,11 +56,11 @@ app.get('/api/health', (req: Request, res: Response) => {
 // app.get('/api/chats/:userId', ...)
 
 // Error handling middleware
-app.use((err: any, req: Request, res: Response, next: any) => {
+app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   console.error(err.stack);
   res.status(500).json({
-    error: 'Internal server error',
-    message: err.message,
+    error: 'サーバーエラーが発生しました',
+    ...(process.env.NODE_ENV === 'development' && { message: err.message }),
   });
 });
 
