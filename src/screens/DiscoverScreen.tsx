@@ -54,7 +54,7 @@ const apiToUser = (apiUser: any): User => ({
 
 export const DiscoverScreen: React.FC = () => {
   const navigation = useNavigation<NavProp>();
-  const { user: authUser } = useAuth();
+  const { user: authUser, getIdToken, signOut } = useAuth();
 
   const [queue, setQueue] = useState<User[]>([]);
   // user.id (string) → API の数値 user_id のマップ
@@ -137,14 +137,25 @@ export const DiscoverScreen: React.FC = () => {
       {
         text: 'Reset', style: 'destructive',
         onPress: async () => {
-          await devApi.resetSwipes(authUser.idToken!);
-          setQueue([]);
-          setLoading(true);
-          fetchUsers();
+          try {
+            const token = await getIdToken();
+            if (!token) {
+              Alert.alert('セッション切れ', '再ログインしてください。', [
+                { text: 'OK', onPress: signOut },
+              ]);
+              return;
+            }
+            await devApi.resetSwipes(token);
+            setQueue([]);
+            setLoading(true);
+            await fetchUsers();
+          } catch (err: any) {
+            Alert.alert('エラー', err?.message ?? 'リセットに失敗しました');
+          }
         },
       },
     ]);
-  }, [authUser?.idToken, fetchUsers]);
+  }, [getIdToken, signOut, fetchUsers]);
 
   const [current, next, third] = queue;
 

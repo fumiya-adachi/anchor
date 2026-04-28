@@ -110,9 +110,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setState(prev => ({ ...prev, profile }));
   }, [state.user]);
 
-  // ステートのトークンをそのまま返す（期限切れは呼び出し側が 401 で検知する）
   const getIdToken = useCallback(async (): Promise<string | null> => {
-    return state.user?.idToken ?? null;
+    const stored = state.user?.idToken;
+    if (!stored) return null;
+
+    // JWT の exp クレームを確認し、まだ有効なら即返す（ネットワーク不要）
+    try {
+      const payload = JSON.parse(atob(stored.split('.')[1]));
+      if (payload.exp * 1000 > Date.now() + 60_000) return stored;
+    } catch {
+      return stored;
+    }
+
+    // 期限切れ（または60秒以内に切れる）→ Cognito でリフレッシュ試行（3秒タイムアウト）
+    const fresh = await getCurrentSession();
+    if (!fresh) return null;
+    if (fresh.idToken !== stored) {
+      setState(prev => prev.user ? { ...prev, user: { ...prev.user!, idToken: fresh.idToken } } : prev);
+    }
+    return fresh.idToken;
   }, [state.user?.idToken]);
 
   return (
