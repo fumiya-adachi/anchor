@@ -17,7 +17,7 @@ import { colors, fonts, spacing, radius } from '@/theme';
 import { userPhotos } from '@/data/mockUsers';
 import { RootStackParamList } from '@/types/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { matchesApi } from '@/services/api';
+import { matchesApi, chatApi } from '@/services/api';
 
 type NavProp = StackNavigationProp<RootStackParamList, 'Tabs'>;
 
@@ -44,9 +44,6 @@ interface Conversation {
   photoKey: string;
 }
 
-// モックはフォールバック用に残す（API未接続時・写真表示用）
-const MOCK_NEW_MATCHES: NewMatch[] = [];
-const MOCK_CONVERSATIONS: Conversation[] = [];
 
 // ────────────────────────────────────────────────────────────
 // Sub-components
@@ -109,20 +106,48 @@ export const MessagesScreen: React.FC = () => {
   const navigation = useNavigation<NavProp>();
   const { user: authUser } = useAuth();
 
-  const [matches, setMatches] = useState<NewMatch[]>(MOCK_NEW_MATCHES);
+  const [matches, setMatches] = useState<NewMatch[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!authUser?.idToken) return;
-    matchesApi.getAll(authUser.idToken)
-      .then(({ matches: data }) => {
-        setMatches(data.map(m => ({
-          id: String(m.match_id),
-          name: m.name,
-          photo: userPhotos[String(m.partner_user_id)]?.[0] ?? null,
-          verified: false,
-          photoKey: String(m.partner_user_id),
-        })));
+    const token = authUser.idToken;
+
+    setLoading(true);
+    matchesApi.getAll(token)
+      .then(async ({ matches: data }) => {
+        const lastMessages = await Promise.allSettled(
+          data.map(m => chatApi.getMessages(token, m.match_id, 1))
+        );
+
+        const newMatches: NewMatch[] = [];
+        const newConversations: Conversation[] = [];
+
+        data.forEach((m, i) => {
+          const base = {
+            id: String(m.match_id),
+            name: m.name,
+            photo: userPhotos[String(m.partner_user_id)]?.[0] ?? null,
+            verified: false,
+            photoKey: String(m.partner_user_id),
+          };
+
+          const result = lastMessages[i];
+          const lastMsg =
+            result.status === 'fulfilled' && result.value.data.length > 0
+              ? result.value.data[0]
+              : null;
+
+          if (lastMsg) {
+            newConversations.push({ ...base, lastMessage: lastMsg.message, isOnline: false, likesYou: false });
+          } else {
+            newMatches.push(base);
+          }
+        });
+
+        setMatches(newMatches);
+        setConversations(newConversations);
       })
       .catch(err => console.error('[Messages] fetch error:', err))
       .finally(() => setLoading(false));
@@ -172,15 +197,19 @@ export const MessagesScreen: React.FC = () => {
         {/* Separator */}
         <View style={styles.divider} />
 
-        {/* Conversations（チャット履歴は Firebase 連携後に実装） */}
-        <Text style={styles.sectionLabel}>Messages</Text>
-        {MOCK_CONVERSATIONS.map((item) => (
-          <ConversationItem
-            key={item.id}
-            item={item}
-            onPress={() => openChat(item.name, item.verified, item.photoKey, item.id)}
-          />
-        ))}
+        {/* Conversations */}
+        {conversations.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>Messages</Text>
+            {conversations.map((item) => (
+              <ConversationItem
+                key={item.id}
+                item={item}
+                onPress={() => openChat(item.name, item.verified, item.photoKey, item.id)}
+              />
+            ))}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
