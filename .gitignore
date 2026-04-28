@@ -14,3 +14,4 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 .env
+server/firebase-key.json
