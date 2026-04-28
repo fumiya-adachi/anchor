@@ -71,18 +71,20 @@ export const markMessagesAsRead = async (
   userId: number
 ): Promise<void> => {
   try {
+    // userId != userId の複合条件はインデックスが必要なのでメモリでフィルタリング
     const snapshot = await db
       .collection('chats')
       .doc(`match_${matchId}`)
       .collection('messages')
       .where('isRead', '==', false)
-      .where('userId', '!=', userId)
       .get();
 
     const batch = db.batch();
-    snapshot.docs.forEach((doc: any) => {
-      batch.update(doc.ref, { isRead: true });
-    });
+    snapshot.docs
+      .filter((doc: any) => doc.data().userId !== userId)
+      .forEach((doc: any) => {
+        batch.update(doc.ref, { isRead: true });
+      });
 
     await batch.commit();
   } catch (err) {
