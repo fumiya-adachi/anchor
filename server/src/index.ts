@@ -1,15 +1,12 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
-import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes';
 import profileRoutes from './routes/profileRoutes';
 import likesRoutes from './routes/likesRoutes';
 import discoverRoutes from './routes/discoverRoutes';
 import chatRoutes from './routes/chatRoutes';
 import devRoutes from './routes/devRoutes';
-
-dotenv.config();
 
 const app: Express = express();
 const PORT = process.env.PORT || 3000;
