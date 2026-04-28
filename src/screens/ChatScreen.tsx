@@ -18,7 +18,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { colors, fonts, spacing, radius } from '@/theme';
 import { userPhotos } from '@/data/mockUsers';
 import { RootStackParamList } from '@/types/navigation';
-import { collection, orderBy, query, limit, onSnapshot } from 'firebase/firestore';
+import { collection, orderBy, query, limit, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { chatApi } from '@/services/api';
 import { firestoreClient } from '@/services/firebaseClient';
@@ -75,7 +75,7 @@ const groupMessages = (rawMessages: any[], myUserId: number): MessageGroup[] => 
       id: msg.id,
       text: msg.message,
       isMine: Number(msg.userId) === Number(myUserId),
-      liked: false,
+      liked: !!msg.isLiked,
       showAvatar: false,
     });
   });
@@ -170,19 +170,11 @@ export const ChatScreen: React.FC<Props> = ({ navigation, route }) => {
     return () => unsubscribe();
   }, [myUserId, matchId]);
 
-  const toggleLike = (groupIdx: number, msgId: string) => {
-    setGroups((prev) =>
-      prev.map((g, gi) =>
-        gi !== groupIdx
-          ? g
-          : {
-              ...g,
-              messages: g.messages.map((m) =>
-                m.id === msgId ? { ...m, liked: !m.liked } : m
-              ),
-            }
-      )
-    );
+  const toggleLike = (msgId: string, currentLiked: boolean) => {
+    const msgRef = doc(firestoreClient, 'chats', `match_${matchId}`, 'messages', msgId);
+    updateDoc(msgRef, { isLiked: !currentLiked })
+      .catch(err => console.error('[Chat] like error:', err));
+    // onSnapshot が UI を自動更新する
   };
 
   const sendMessage = async () => {
@@ -282,13 +274,19 @@ export const ChatScreen: React.FC<Props> = ({ navigation, route }) => {
                       </Text>
                     </View>
 
-                    <TouchableOpacity
-                      style={styles.heartBtn}
-                      onPress={() => toggleLike(gi, msg.id)}
-                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                    >
-                      <HeartIcon filled={msg.liked} />
-                    </TouchableOpacity>
+                    {msg.isMine ? (
+                      // 自分のメッセージ：like されたときだけハートを表示（タップ不可）
+                      msg.liked && <HeartIcon filled />
+                    ) : (
+                      // 相手のメッセージ：like ボタンを表示
+                      <TouchableOpacity
+                        style={styles.heartBtn}
+                        onPress={() => toggleLike(msg.id, msg.liked)}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <HeartIcon filled={msg.liked} />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               ))}
@@ -435,7 +433,7 @@ const styles = StyleSheet.create({
   // Bubble + heart wrapper
   bubbleWrap: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     maxWidth: '72%',
     gap: 6,
   },
