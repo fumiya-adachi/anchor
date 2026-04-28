@@ -60,8 +60,10 @@ export const createUser = async (
 // ユーザー情報を取得
 export const getUser = async (cognitoId: string): Promise<any> => {
   try {
+    // p.* を先に展開し、その後 u.id, u.cognito_id, u.email で上書き
+    // これにより profiles.id が users.id を潰さないようにする
     const result = await pool.query(
-      'SELECT u.*, p.* FROM users u LEFT JOIN profiles p ON u.id = p.user_id WHERE u.cognito_id = $1',
+      'SELECT p.*, u.id, u.cognito_id, u.email FROM users u LEFT JOIN profiles p ON u.id = p.user_id WHERE u.cognito_id = $1',
       [cognitoId]
     );
     return result.rows[0];

@@ -76,7 +76,11 @@ export const getCurrentSession = (): Promise<AuthUser | null> => {
     const user = userPool.getCurrentUser();
     if (!user) return resolve(null);
 
+    // Cognito がトークンリフレッシュでハングする場合があるのでタイムアウトを設ける
+    const timer = setTimeout(() => resolve(null), 3000);
+
     user.getSession((err: Error | null, session: CognitoUserSession | null) => {
+      clearTimeout(timer);
       if (err || !session?.isValid()) return resolve(null);
       const idToken = session.getIdToken();
       resolve({
