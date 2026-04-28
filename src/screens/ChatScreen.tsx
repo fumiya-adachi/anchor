@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,18 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { colors, fonts, spacing, radius } from '@/theme';
 import { userPhotos } from '@/data/mockUsers';
 import { RootStackParamList } from '@/types/navigation';
+import { collection, orderBy, query, limit, onSnapshot } from 'firebase/firestore';
+import { useAuth } from '@/contexts/AuthContext';
+import { chatApi } from '@/services/api';
+import { firestoreClient } from '@/services/firebaseClient';
 
 // ────────────────────────────────────────────────────────────
 // Types
@@ -35,159 +41,56 @@ interface MessageGroup {
 }
 
 // ────────────────────────────────────────────────────────────
-// Mock data (per conversation)
+// Helpers
 // ────────────────────────────────────────────────────────────
 
-const MOCK_GROUPS: Record<string, MessageGroup[]> = {
-  // Kenta — パワーリフティング仲間
-  c1: [
-    {
-      dateLabel: '4/12/2026, 7:15 AM',
-      messages: [
-        { id: '1', text: 'よ！マッチありがとう💪', isMine: false, liked: false, showAvatar: false },
-        { id: '2', text: 'スクワット何キロ挙げてる？', isMine: false, liked: false, showAvatar: true },
-      ],
-    },
-    {
-      dateLabel: '4/12/2026, 7:30 AM',
-      messages: [
-        { id: '3', text: '今は140kgくらいです！', isMine: true, liked: false },
-        { id: '4', text: 'Kentaさんは170kgって書いてましたよね、すごい…', isMine: true, liked: false },
-      ],
-    },
-    {
-      dateLabel: '4/14/2026, 6:50 AM',
-      messages: [
-        { id: '5', text: 'フォーム見せてもらえたら一緒に練習しよう', isMine: false, liked: true, showAvatar: false },
-        { id: '6', text: '今週末Chocozap来る？', isMine: false, liked: false, showAvatar: true },
-      ],
-    },
-    {
-      dateLabel: '4/14/2026, 7:05 AM',
-      messages: [
-        { id: '7', text: '土曜の朝6時ならいけます！', isMine: true, liked: false },
-      ],
-    },
-  ],
+const toDate = (ts: any): Date => {
+  if (ts?.toDate) return ts.toDate();        // Firestore Timestamp (JS SDK)
+  if (ts?.seconds) return new Date(ts.seconds * 1000);  // Timestamp as plain object
+  if (ts?._seconds) return new Date(ts._seconds * 1000); // REST format
+  return new Date(ts);
+};
 
-  // Takumi — 初心者サポート
-  c2: [
-    {
-      dateLabel: '4/13/2026, 8:00 PM',
-      messages: [
-        { id: '1', text: 'はじめまして！減量中なんですよね？', isMine: true, liked: false },
-      ],
-    },
-    {
-      dateLabel: '4/13/2026, 8:10 PM',
-      messages: [
-        { id: '2', text: 'そうです！食事管理が難しくて😅', isMine: false, liked: false, showAvatar: false },
-        { id: '3', text: 'タンパク質どのくらい摂ってますか？', isMine: false, liked: false, showAvatar: true },
-      ],
-    },
-    {
-      dateLabel: '4/15/2026, 9:00 PM',
-      messages: [
-        { id: '4', text: '体重×2gが目安ですよ！', isMine: true, liked: false },
-        { id: '5', text: 'Where are you going to train after …', isMine: true, liked: false },
-      ],
-    },
-    {
-      dateLabel: '4/15/2026, 9:20 PM',
-      messages: [
-        { id: '6', text: 'ありがとうございます🙏 参考にします！', isMine: false, liked: true, showAvatar: true },
-      ],
-    },
-  ],
+const formatLabel = (date: Date): string =>
+  date.toLocaleString('en-US', {
+    month: 'numeric', day: 'numeric', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
 
-  // Sota — 朝活トレ仲間
-  c3: [
-    {
-      dateLabel: '4/11/2026, 6:20 AM',
-      messages: [
-        { id: '1', text: 'おはようございます！朝活仲間いた🌅', isMine: false, liked: false, showAvatar: false },
-        { id: '2', text: '渋谷Gold\'s Gym使ってる？', isMine: false, liked: false, showAvatar: true },
-      ],
-    },
-    {
-      dateLabel: '4/11/2026, 6:35 AM',
-      messages: [
-        { id: '3', text: 'はい！週4で通ってます', isMine: true, liked: false },
-        { id: '4', text: '一緒にトレしましょう！', isMine: true, liked: false },
-      ],
-    },
-    {
-      dateLabel: '4/15/2026, 6:10 AM',
-      messages: [
-        { id: '5', text: 'You too!', isMine: false, liked: false, showAvatar: true },
-      ],
-    },
-  ],
+const groupMessages = (rawMessages: any[], myUserId: number): MessageGroup[] => {
+  const msgs = [...rawMessages].reverse(); // API returns desc
+  const groups: MessageGroup[] = [];
+  let currentDateKey = '';
 
-  // Sho — 増量期バディ
-  c4: [
-    {
-      dateLabel: '4/14/2026, 1:00 PM',
-      messages: [
-        { id: '1', text: 'ボディビル目指してるんですか？', isMine: true, liked: false },
-      ],
-    },
-    {
-      dateLabel: '4/14/2026, 1:15 PM',
-      messages: [
-        { id: '2', text: 'そうです！来年の大会目標にしてます', isMine: false, liked: false, showAvatar: false },
-        { id: '3', text: '今は増量期で爆食い中🍚', isMine: false, liked: true, showAvatar: true },
-      ],
-    },
-    {
-      dateLabel: '4/15/2026, 12:45 PM',
-      messages: [
-        { id: '4', text: "Let's hit the gym together sometime!", isMine: false, liked: false, showAvatar: true },
-      ],
-    },
-    {
-      dateLabel: '4/15/2026, 1:00 PM',
-      messages: [
-        { id: '5', text: 'ぜひ！新宿のGold\'s Gym行きましょう', isMine: true, liked: false },
-      ],
-    },
-  ],
+  msgs.forEach((msg) => {
+    const date = toDate(msg.timestamp);
+    const dateKey = date.toDateString();
 
-  // Ryo — クロスフィット仲間
-  c5: [
-    {
-      dateLabel: '4/10/2026, 9:00 PM',
-      messages: [
-        { id: '1', text: 'クロスフィットもやるんですね！', isMine: true, liked: false },
-        { id: '2', text: '夜トレ派ですか？', isMine: true, liked: false },
-      ],
-    },
-    {
-      dateLabel: '4/10/2026, 9:15 PM',
-      messages: [
-        { id: '3', text: 'そうそう、仕事終わりに20時からが多いです', isMine: false, liked: false, showAvatar: false },
-        { id: '4', text: 'Morning sessions are the best 💪', isMine: false, liked: false, showAvatar: true },
-      ],
-    },
-    {
-      dateLabel: '4/13/2026, 9:30 PM',
-      messages: [
-        { id: '5', text: 'Ebisu Tipness一緒に行きたい！', isMine: true, liked: false },
-      ],
-    },
-    {
-      dateLabel: '4/13/2026, 9:45 PM',
-      messages: [
-        { id: '6', text: '来週どう？水曜とか', isMine: false, liked: true, showAvatar: true },
-      ],
-    },
-  ],
+    if (dateKey !== currentDateKey) {
+      groups.push({ dateLabel: formatLabel(date), messages: [] });
+      currentDateKey = dateKey;
+    }
 
-  // New match entries (no messages yet)
-  m1: [{ dateLabel: '4/16/2026, 10:00 AM', messages: [] }],
-  m2: [{ dateLabel: '4/16/2026, 10:00 AM', messages: [] }],
-  m3: [{ dateLabel: '4/16/2026, 10:00 AM', messages: [] }],
-  m4: [{ dateLabel: '4/16/2026, 10:00 AM', messages: [] }],
+    groups[groups.length - 1].messages.push({
+      id: msg.id,
+      text: msg.message,
+      isMine: Number(msg.userId) === Number(myUserId),
+      liked: false,
+      showAvatar: false,
+    });
+  });
+
+  // Show avatar on the last received message within each date group
+  groups.forEach((group) => {
+    for (let i = group.messages.length - 1; i >= 0; i--) {
+      if (!group.messages[i].isMine) {
+        group.messages[i] = { ...group.messages[i], showAvatar: true };
+        break;
+      }
+    }
+  });
+
+  return groups;
 };
 
 // ────────────────────────────────────────────────────────────
@@ -230,14 +133,42 @@ type Props = StackScreenProps<RootStackParamList, 'Chat'>;
 // ────────────────────────────────────────────────────────────
 
 export const ChatScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { name, verified, photoKey } = route.params;
+  const { name, verified, photoKey, conversationId } = route.params;
   const photo = userPhotos[photoKey]?.[0];
+  const { user: authUser, dbUser, signOut } = useAuth();
+  const matchId = parseInt(conversationId, 10);
 
-  const [groups, setGroups] = useState<MessageGroup[]>(
-    MOCK_GROUPS[route.params.conversationId] ?? [{ dateLabel: '4/16/2026, 10:00 AM', messages: [] }]
-  );
+  const [groups, setGroups] = useState<MessageGroup[]>([]);
+  const [loading, setLoading] = useState(true);
   const [inputText, setInputText] = useState('');
   const scrollRef = useRef<ScrollView>(null);
+
+  const myUserId = dbUser?.user_id ?? dbUser?.id;
+
+  useEffect(() => {
+    if (!myUserId || isNaN(matchId)) return;
+
+    const q = query(
+      collection(firestoreClient, 'chats', `match_${matchId}`, 'messages'),
+      orderBy('timestamp', 'desc'),
+      limit(50)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const raw = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setGroups(groupMessages(raw, myUserId));
+        setLoading(false);
+      },
+      (err) => {
+        console.error('[Chat] onSnapshot error:', err);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [myUserId, matchId]);
 
   const toggleLike = (groupIdx: number, msgId: string) => {
     setGroups((prev) =>
@@ -254,30 +185,32 @@ export const ChatScreen: React.FC<Props> = ({ navigation, route }) => {
     );
   };
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     const text = inputText.trim();
     if (!text) return;
-
-    const now = new Date();
-    const label = `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()}, ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
-
-    setGroups((prev) => {
-      const last = prev[prev.length - 1];
-      const newMsg: ChatMessage = {
-        id: String(Date.now()),
-        text,
-        isMine: true,
-        liked: false,
-      };
-      if (last && last.messages.length === 0) {
-        // update the last empty group
-        return prev.slice(0, -1).concat({ dateLabel: label, messages: [newMsg] });
-      }
-      return [...prev, { dateLabel: label, messages: [newMsg] }];
-    });
-
     setInputText('');
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+
+    const token = authUser?.idToken;
+    if (!token) {
+      Alert.alert('セッション切れ', '再ログインしてください。', [
+        { text: 'OK', onPress: () => { signOut(); navigation.goBack(); } },
+      ]);
+      return;
+    }
+
+    try {
+      await chatApi.send(token, matchId, text);
+    } catch (err: any) {
+      const msg = err?.message ?? String(err);
+      if (msg.includes('無効') || msg.includes('トークン')) {
+        Alert.alert('セッション切れ', '再ログインしてください。', [
+          { text: 'OK', onPress: () => { signOut(); navigation.goBack(); } },
+        ]);
+      } else {
+        Alert.alert('送信エラー', msg);
+      }
+    }
+    // onSnapshot が自動的に画面を更新するので楽観的更新不要
   };
 
   return (
@@ -316,6 +249,9 @@ export const ChatScreen: React.FC<Props> = ({ navigation, route }) => {
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
         >
+          {loading && (
+            <ActivityIndicator color={colors.accent} style={{ marginTop: 32 }} />
+          )}
           {groups.map((group, gi) => (
             <View key={gi}>
               {/* Date label */}
