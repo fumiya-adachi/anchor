@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import * as admin from 'firebase-admin';
 import { authenticateToken } from '../middleware/auth';
 import { userExists, createUser, getUser } from '../services/authService';
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -52,6 +53,14 @@ router.get('/me', authenticateToken, asyncHandler(async (req: Request, res: Resp
 
   const userData = await getUser(user.cognitoId);
   res.status(200).json({ user: userData });
+}));
+
+// GET /api/auth/firebase-token
+// Cognito 認証済みユーザーに Firebase Custom Token を発行
+router.get('/firebase-token', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  const { cognitoId } = (req as any).user;
+  const firebaseToken = await admin.auth().createCustomToken(cognitoId);
+  res.json({ firebaseToken });
 }));
 
 // POST /api/auth/logout

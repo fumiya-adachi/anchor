@@ -61,6 +61,9 @@ export const authApi = {
 
   me: (token: string) =>
     request<{ user: any }>('/auth/me', { token }),
+
+  getFirebaseToken: (token: string) =>
+    request<{ firebaseToken: string }>('/auth/firebase-token', { token }),
 };
 
 export const profileApi = {
@@ -112,6 +115,16 @@ export const matchesApi = {
 export const discoverApi = {
   getUsers: (token: string, limit = 20) =>
     request<{ users: any[] }>(`/discover?limit=${limit}`, { token }),
+};
+
+export const chatApi = {
+  send: (token: string, matchId: number, message: string) =>
+    request<{ message: string; data: any }>('/chats', {
+      method: 'POST', token, body: { matchId, message },
+    }),
+
+  getMessages: (token: string, matchId: number, limit = 50) =>
+    request<{ data: any[]; count: number }>(`/chats/${matchId}?limit=${limit}`, { token }),
 };
 
 export const devApi = {
