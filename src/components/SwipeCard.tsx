@@ -37,8 +37,9 @@ export const SwipeCard: React.FC<SwipeCardProps> = ({
   const photos = userPhotos[user.id] ?? [];
   const photoCount = photos.length;
   const [photoIndex, setPhotoIndex] = useState(0);
-  // カードの実際の高さを取得してフル表示に使う
   const [cardHeight, setCardHeight] = useState(0);
+  const [sectionW, setSectionW] = useState(0);
+  const [sectionH, setSectionH] = useState(0);
 
   const goNext = () => setPhotoIndex((i) => Math.min(i + 1, photoCount - 1));
   const goPrev = () => setPhotoIndex((i) => Math.max(i - 1, 0));
@@ -122,15 +123,25 @@ export const SwipeCard: React.FC<SwipeCardProps> = ({
         bounces={false}
         decelerationRate="fast"
       >
-        {/* ── 写真セクション（カード全高） ── */}
+        {/* ── 写真セクション ── */}
         <GestureDetector gesture={Gesture.Exclusive(tap)}>
-          <View style={[styles.photoSection, cardHeight > 0 && { height: cardHeight }]}>
+          <View
+            style={[styles.photoSection, cardHeight > 0 && { height: cardHeight }]}
+            onLayout={(e) => {
+              setSectionW(e.nativeEvent.layout.width);
+              setSectionH(e.nativeEvent.layout.height);
+            }}
+          >
 
             {/* 写真 or イニシャル */}
             {photoCount > 0 ? (
               <Image
                 source={photos[photoIndex]}
-                style={StyleSheet.absoluteFillObject}
+                style={{
+                  position: 'absolute',
+                  width: sectionW > 0 ? sectionW : SCREEN_WIDTH,
+                  height: sectionH > 0 ? sectionH : 500,
+                }}
                 resizeMode="cover"
               />
             ) : (
@@ -316,7 +327,7 @@ const styles = StyleSheet.create({
 
   // 写真セクション
   photoSection: {
-    height: 500, // onLayout で上書きされる初期値
+    height: 500,
     backgroundColor: colors.bgDeep,
     alignItems: 'center',
     justifyContent: 'center',
